@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Rutina</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>Mi Dashboard</h1>
+  <canvas id="grafico"></canvas>
+
+  <script>
+    fetch("https://usuario.github.io/repo/data/rutina.csv")
+      .then(res => res.text())
+      .then(csv => {
+        // Parsear CSV con PapaParse
+        const data = Papa.parse(csv, {header:true}).data;
+
+        // Ejemplo: tomar columnas "Ejercicio" y "Volumen"
+        const labels = data.map(row => row.Ejercicio);
+        const valores = data.map(row => parseInt(row.Volumen));
+
+        // Crear gráfico con Chart.js
+        new Chart(document.getElementById("grafico"), {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [{
+              label: "Volumen total",
+              data: valores,
+              backgroundColor: "rgba(75,192,192,0.6)"
+            }]
+          }
+        });
+      });
+  </script>
+</body>
+</html>
