@@ -2,48 +2,36 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Dashboard Rutina</title>
-  <script>
-fetch("https://danielpie04-svg.github.io/Rutinaop/rutina.csv")
-  .then(res => res.text())
-  .then(data => {
-    console.log("Contenido CSV:", data); // 👈 Verás el texto crudo en consola
-    const filas = data.split("\n").map(r => r.split(","));
-    console.log("Filas procesadas:", filas); // 👈 Verás las filas separadas
-  });
-</script>
-
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>Mi Dashboard</title>
 </head>
 <body>
   <h1>Mi Dashboard</h1>
-  <canvas id="grafico"></canvas>
+  <div id="tabla"></div>
 
   <script>
-    fetch("https://usuario.github.io/repo/data/rutina.csv")
+    // Leer el CSV desde el mismo repo
+    fetch("RutinaOP - Hoja1.csv")
       .then(res => res.text())
-      .then(csv => {
-        // Parsear CSV con PapaParse
-        const data = Papa.parse(csv, {header:true}).data;
+      .then(data => {
+        console.log("Contenido CSV:", data); // 👀 Verifica en consola
 
-        // Ejemplo: tomar columnas "Ejercicio" y "Volumen"
-        const labels = data.map(row => row.Ejercicio);
-        const valores = data.map(row => parseInt(row.Volumen));
+        // Separar filas por salto de línea
+        const filas = data.trim().split("\n").map(r => r.split(","));
 
-        // Crear gráfico con Chart.js
-        new Chart(document.getElementById("grafico"), {
-          type: "bar",
-          data: {
-            labels: labels,
-            datasets: [{
-              label: "Volumen total",
-              data: valores,
-              backgroundColor: "rgba(75,192,192,0.6)"
-            }]
-          }
+        // Construir tabla HTML
+        let html = "<table border='1' cellspacing='0' cellpadding='5'>";
+        filas.forEach(fila => {
+          html += "<tr>";
+          fila.forEach(celda => {
+            html += "<td>" + celda + "</td>";
+          });
+          html += "</tr>";
         });
-      });
+        html += "</table>";
+
+        document.getElementById("tabla").innerHTML = html;
+      })
+      .catch(err => console.error("Error al cargar CSV:", err));
   </script>
 </body>
 </html>
