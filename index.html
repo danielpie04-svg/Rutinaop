@@ -1,37 +1,640 @@
-<!DOCTYPE html>
+# Write an html template to file index.html that fetches raw CSV from github
+html_content = """<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Mi Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RutinaOP - Gym Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1rem;
+        }
+        .calendar-day {
+            aspect-ratio: 1;
+            transition: all 0.2s ease;
+        }
+        .calendar-day:hover {
+            transform: translateY(-2px);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
 </head>
-<body>
-  <h1>Mi Dashboard</h1>
-  <div id="tabla"></div>
+<body class="min-h-screen p-4 md:p-8">
 
-  <script>
-    // Leer el CSV desde el mismo repo
-    fetch("RutinaOP - Hoja1.csv")
-      .then(res => res.text())
-      .then(data => {
-        console.log("Contenido CSV:", data); // 👀 Verifica en consola
+    <!-- Top Navigation / Header -->
+    <header class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4 glass-card p-6">
+        <div class="flex items-center gap-3">
+            <div class="p-3 bg-indigo-600/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                <i data-lucide="dumbbell" class="w-8 h-8"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    RutinaOP Dashboard
+                </h1>
+                <p class="text-xs text-slate-400 flex items-center gap-2 mt-1">
+                    <span id="sync-status" class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Conectado con GitHub (RutinaOP - Hoja1.csv)
+                </p>
+            </div>
+        </div>
 
-        // Separar filas por salto de línea
-        const filas = data.trim().split("\n").map(r => r.split(","));
+        <div class="flex items-center gap-3">
+            <button onclick="fetchCSVData()" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-indigo-600/20">
+                <i data-lucide="refresh-cw" class="w-4 h-4" id="refresh-icon"></i>
+                Actualizar Datos
+            </button>
+        </div>
+    </header>
 
-        // Construir tabla HTML
-        let html = "<table border='1' cellspacing='0' cellpadding='5'>";
-        filas.forEach(fila => {
-          html += "<tr>";
-          fila.forEach(celda => {
-            html += "<td>" + celda + "</td>";
-          });
-          html += "</tr>";
-        });
-        html += "</table>";
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto space-y-8">
 
-        document.getElementById("tabla").innerHTML = html;
-      })
-      .catch(err => console.error("Error al cargar CSV:", err));
-  </script>
+        <!-- KPI Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="glass-card p-5">
+                <div class="flex items-center justify-between text-slate-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Sesiones Totales</span>
+                    <i data-lucide="calendar" class="w-5 h-5 text-indigo-400"></i>
+                </div>
+                <div class="text-3xl font-extrabold text-white" id="kpi-sessions">0</div>
+                <div class="text-xs text-slate-400 mt-1" id="kpi-sessions-sub">Días registrados</div>
+            </div>
+
+            <div class="glass-card p-5">
+                <div class="flex items-center justify-between text-slate-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Volumen Acumulado</span>
+                    <i data-lucide="zap" class="w-5 h-5 text-amber-400"></i>
+                </div>
+                <div class="text-3xl font-extrabold text-white" id="kpi-volume">0 kg</div>
+                <div class="text-xs text-slate-400 mt-1">Peso total x Repeticiones</div>
+            </div>
+
+            <div class="glass-card p-5">
+                <div class="flex items-center justify-between text-slate-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Promedio por Sesión</span>
+                    <i data-lucide="trending-up" class="w-5 h-5 text-emerald-400"></i>
+                </div>
+                <div class="text-3xl font-extrabold text-white" id="kpi-avg-volume">0 kg</div>
+                <div class="text-xs text-slate-400 mt-1">Volumen medio diario</div>
+            </div>
+
+            <div class="glass-card p-5">
+                <div class="flex items-center justify-between text-slate-400 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Ejercicios Distintos</span>
+                    <i data-lucide="activity" class="w-5 h-5 text-purple-400"></i>
+                </div>
+                <div class="text-3xl font-extrabold text-white" id="kpi-exercises">0</div>
+                <div class="text-xs text-slate-400 mt-1">En catálogo activo</div>
+            </div>
+        </div>
+
+        <!-- Charts Row 1: Volume Trend & Muscle Distribution -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="glass-card p-6 lg:col-span-2">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-white">Volumen Total por Sesión</h2>
+                        <p class="text-xs text-slate-400">Evolución de carga (kg) por día y rutina (Push / Pull / Legs)</p>
+                    </div>
+                </div>
+                <div class="h-72">
+                    <canvas id="volumeChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-white">Distribución Muscular</h2>
+                        <p class="text-xs text-slate-400">Proporción de series realizadas</p>
+                    </div>
+                </div>
+                <div class="h-72 flex items-center justify-center">
+                    <canvas id="muscleChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Workout Calendar & Inspector -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Calendar Component -->
+            <div class="glass-card p-6 lg:col-span-2">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-white">Calendario de Entrenamientos</h2>
+                        <p class="text-xs text-slate-400">Selecciona un día destacado para ver el desglose completo</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="flex items-center gap-1 text-xs text-slate-400"><span class="w-3 h-3 rounded-full bg-blue-500/80"></span> Push</span>
+                        <span class="flex items-center gap-1 text-xs text-slate-400"><span class="w-3 h-3 rounded-full bg-purple-500/80"></span> Pull</span>
+                        <span class="flex items-center gap-1 text-xs text-slate-400"><span class="w-3 h-3 rounded-full bg-emerald-500/80"></span> Legs</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between mb-4">
+                    <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-700/50 rounded-lg text-slate-300"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                    <span id="calendar-month-year" class="font-bold text-slate-200">Julio 2026</span>
+                    <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-700/50 rounded-lg text-slate-300"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                </div>
+
+                <div class="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-slate-400 mb-2">
+                    <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
+                </div>
+                <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+                    <!-- Calendar days dynamically rendered -->
+                </div>
+            </div>
+
+            <!-- Session Inspector Sidebar -->
+            <div class="glass-card p-6 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-700/60 pb-4 mb-4">
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <i data-lucide="clipboard-list" class="w-5 h-5 text-indigo-400"></i>
+                            Inspector de Sesión
+                        </h2>
+                        <span id="selected-date-badge" class="px-2.5 py-1 bg-indigo-500/20 text-indigo-300 text-xs font-semibold rounded-full border border-indigo-500/30">
+                            -
+                        </span>
+                    </div>
+
+                    <div id="inspector-content" class="space-y-4 max-h-[380px] overflow-y-auto pr-1">
+                        <div class="text-center py-12 text-slate-500 text-sm">
+                            Haz clic en un día del calendario para examinar la rutina.
+                        </div>
+                    </div>
+                </div>
+
+                <div id="inspector-summary" class="mt-4 pt-4 border-t border-slate-700/60 text-xs text-slate-400 hidden">
+                    <div class="flex justify-between font-semibold text-slate-200">
+                        <span>Volumen de la Sesión:</span>
+                        <span id="session-total-vol" class="text-indigo-400">0 kg</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Individual Exercise Progress & Personal Records (PRs) -->
+        <div class="glass-card p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-lg font-bold text-white">Análisis de Progreso por Ejercicio</h2>
+                    <p class="text-xs text-slate-400">Selecciona un ejercicio para ver el histórico de cargas máximas registradas</p>
+                </div>
+                <select id="exerciseSelect" onchange="renderExerciseChart()" class="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                    <!-- Options populated dynamically -->
+                </select>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-center">
+                <div class="lg:col-span-3 h-72">
+                    <canvas id="exerciseChart"></canvas>
+                </div>
+                <div class="space-y-4 bg-slate-800/50 p-5 rounded-xl border border-slate-700/50">
+                    <h3 class="text-sm font-bold text-slate-300 uppercase tracking-wider">Estadísticas del Ejercicio</h3>
+                    <div>
+                        <span class="text-xs text-slate-400 block">Récord Personal (PR)</span>
+                        <span id="ex-stat-pr" class="text-2xl font-black text-amber-400">0 kg</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-slate-400 block">Último Peso Usado</span>
+                        <span id="ex-stat-last" class="text-xl font-bold text-slate-200">0 kg</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-slate-400 block">Grupo Muscular</span>
+                        <span id="ex-stat-group" class="text-sm font-semibold text-indigo-400">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Overload Recommendation Engine -->
+        <div class="glass-card p-6">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30">
+                    <i data-lucide="sparkles" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-white">Asistente Inteligente de Sobrecarga Progresiva</h2>
+                    <p class="text-xs text-slate-400">Recomendaciones personalizadas basadas en el rendimiento de tu última sesión</p>
+                </div>
+            </div>
+
+            <div id="overload-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Recommended overload cards injected dynamically -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Script Section -->
+    <script>
+        // RAW CSV URL on GitHub repository
+        const CSV_URL = 'https://raw.githubusercontent.com/danielpie04-svg/Rutinaop/main/RutinaOP%20-%20Hoja1.csv';
+
+        let rawData = [];
+        let volumeChartInstance = null;
+        let muscleChartInstance = null;
+        let exerciseChartInstance = null;
+        let currentCalendarDate = new Date(2026, 6, 1); // July 2026 default
+
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Fetch CSV from GitHub
+        async function fetchCSVData() {
+            const refreshIcon = document.getElementById('refresh-icon');
+            if (refreshIcon) refreshIcon.classList.add('animate-spin');
+
+            try {
+                // Fetch with cache busting to always get latest CSV
+                const response = await fetch(CSV_URL + '?t=' + new Date().getTime());
+                const csvText = await response.text();
+
+                Papa.parse(csvText, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        rawData = cleanParsedData(results.data);
+                        initDashboard();
+                        document.getElementById('sync-status').className = "inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+                    }
+                });
+            } catch (error) {
+                console.error("Error fetching CSV:", error);
+                document.getElementById('sync-status').className = "inline-block w-2 h-2 rounded-full bg-rose-500";
+                alert("Error al cargar datos del repositorio GitHub. Verifica tu conexión.");
+            } finally {
+                if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+            }
+        }
+
+        function cleanParsedData(data) {
+            return data.filter(row => row.Fecha && row.Ejercicio).map(row => {
+                // Parse date string (handles formats like D/M/YYYY or YYYY-MM-DD)
+                let dateStr = row.Fecha.toString().trim();
+                let dateParts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
+                let year, month, day;
+                if (dateParts[0].length === 4) {
+                    year = parseInt(dateParts[0]);
+                    month = parseInt(dateParts[1]) - 1;
+                    day = parseInt(dateParts[2]);
+                } else {
+                    day = parseInt(dateParts[0]);
+                    month = parseInt(dateParts[1]) - 1;
+                    year = parseInt(dateParts[2]);
+                }
+                let dateObj = new Date(year, month, day);
+
+                let s1Val = (parseFloat(row.S1PESO) || 0) * (parseFloat(row.S1Reps) || 0);
+                let s2Val = (parseFloat(row.S2PESO) || 0) * (parseFloat(row.S2Reps) || 0);
+                let s3Val = (parseFloat(row.S3PESO) || 0) * (parseFloat(row.S3Reps) || 0);
+                let s4Val = (parseFloat(row.S4PESO) || 0) * (parseFloat(row.S4Reps) || 0);
+                let totalVol = s1Val + s2Val + s3Val + s4Val;
+
+                let maxPeso = Math.max(
+                    parseFloat(row.S1PESO) || 0,
+                    parseFloat(row.S2PESO) || 0,
+                    parseFloat(row.S3PESO) || 0,
+                    parseFloat(row.S4PESO) || 0
+                );
+
+                return {
+                    ...row,
+                    DateObj: dateObj,
+                    DateFormatted: `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+                    VolumenTotal: totalVol,
+                    MaxPeso: maxPeso
+                };
+            });
+        }
+
+        function initDashboard() {
+            renderKPIs();
+            renderVolumeChart();
+            renderMuscleChart();
+            renderCalendar();
+            populateExerciseSelect();
+            renderExerciseChart();
+            renderOverloadRecommendations();
+        }
+
+        // 1. Render KPIs
+        function renderKPIs() {
+            const uniqueDates = [...new Set(rawData.map(r => r.DateFormatted))];
+            const totalVol = rawData.reduce((acc, r) => acc + r.VolumenTotal, 0);
+            const avgVol = uniqueDates.length ? Math.round(totalVol / uniqueDates.length) : 0;
+            const uniqueExercises = [...new Set(rawData.map(r => r.Ejercicio))];
+
+            document.getElementById('kpi-sessions').innerText = uniqueDates.length;
+            document.getElementById('kpi-volume').innerText = totalVol.toLocaleString('es-ES') + ' kg';
+            document.getElementById('kpi-avg-volume').innerText = avgVol.toLocaleString('es-ES') + ' kg';
+            document.getElementById('kpi-exercises').innerText = uniqueExercises.length;
+        }
+
+        // 2. Volume Chart
+        function renderVolumeChart() {
+            const sessions = {};
+            rawData.forEach(r => {
+                if (!sessions[r.DateFormatted]) {
+                    sessions[r.DateFormatted] = { date: r.DateFormatted, routine: r.Rutina, volume: 0 };
+                }
+                sessions[r.DateFormatted].volume += r.VolumenTotal;
+            });
+
+            const sortedDates = Object.keys(sessions).sort();
+            const labels = sortedDates;
+            const dataValues = sortedDates.map(d => sessions[d].volume);
+            const backgroundColors = sortedDates.map(d => {
+                const rut = (sessions[d].routine || '').toLowerCase();
+                if (rut.includes('push')) return '#3b82f6';
+                if (rut.includes('pull')) return '#a855f7';
+                return '#10b981';
+            });
+
+            const ctx = document.getElementById('volumeChart').getContext('2d');
+            if (volumeChartInstance) volumeChartInstance.destroy();
+
+            volumeChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Volumen (kg)',
+                        data: dataValues,
+                        backgroundColor: backgroundColors,
+                        borderRadius: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        // 3. Muscle Group Chart
+        function renderMuscleChart() {
+            const muscleCounts = {};
+            rawData.forEach(r => {
+                let g = r.Grupo || 'Otro';
+                muscleCounts[g] = (muscleCounts[g] || 0) + 1;
+            });
+
+            const labels = Object.keys(muscleCounts);
+            const dataValues = Object.values(muscleCounts);
+
+            const ctx = document.getElementById('muscleChart').getContext('2d');
+            if (muscleChartInstance) muscleChartInstance.destroy();
+
+            muscleChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: dataValues,
+                        backgroundColor: ['#3b82f6', '#ec4899', '#a855f7', '#10b981', '#f59e0b', '#06b6d4'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } }
+                    },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        // 4. Calendar Logic
+        function changeMonth(delta) {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+
+            const year = currentCalendarDate.getFullYear();
+            const month = currentCalendarDate.getMonth();
+
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            document.getElementById('calendar-month-year').innerText = `${monthNames[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1);
+            let startingDay = firstDay.getDay() - 1;
+            if (startingDay === -1) startingDay = 6; // Sunday fix
+
+            const lastDate = new Date(year, month + 1, 0).getDate();
+
+            // Map existing workouts by date string YYYY-MM-DD
+            const workoutMap = {};
+            rawData.forEach(r => {
+                if (!workoutMap[r.DateFormatted]) workoutMap[r.DateFormatted] = [];
+                workoutMap[r.DateFormatted].push(r);
+            });
+
+            // Blank cells
+            for (let i = 0; i < startingDay; i++) {
+                const blank = document.createElement('div');
+                blank.className = 'calendar-day p-2 rounded-lg bg-slate-900/30 opacity-20';
+                grid.appendChild(blank);
+            }
+
+            // Days of the month
+            for (let day = 1; day <= lastDate; day++) {
+                const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const hasWorkout = workoutMap[dayStr];
+
+                const dayCell = document.createElement('div');
+                let bgClass = "bg-slate-800/40 border border-slate-700/40 text-slate-400";
+
+                if (hasWorkout) {
+                    const routine = hasWorkout[0].Rutina.toLowerCase();
+                    if (routine.includes('push')) bgClass = "bg-blue-600/30 border border-blue-500/50 text-blue-200 font-bold cursor-pointer hover:bg-blue-600/50";
+                    else if (routine.includes('pull')) bgClass = "bg-purple-600/30 border border-purple-500/50 text-purple-200 font-bold cursor-pointer hover:bg-purple-600/50";
+                    else bgClass = "bg-emerald-600/30 border border-emerald-500/50 text-emerald-200 font-bold cursor-pointer hover:bg-emerald-600/50";
+                }
+
+                dayCell.className = `calendar-day p-2 rounded-lg flex flex-col justify-between ${bgClass}`;
+                dayCell.innerHTML = `
+                    <span class="text-xs">${day}</span>
+                    ${hasWorkout ? `<span class="text-[10px] uppercase tracking-tighter truncate">${hasWorkout[0].Rutina}</span>` : ''}
+                `;
+
+                if (hasWorkout) {
+                    dayCell.onclick = () => inspectSession(dayStr, hasWorkout);
+                }
+
+                grid.appendChild(dayCell);
+            }
+        }
+
+        // Inspector logic
+        function inspectSession(dateStr, sessionRows) {
+            document.getElementById('selected-date-badge').innerText = dateStr;
+            const container = document.getElementById('inspector-content');
+            container.innerHTML = '';
+
+            let totalSessionVol = 0;
+
+            sessionRows.forEach(r => {
+                totalSessionVol += r.VolumenTotal;
+                const card = document.createElement('div');
+                card.className = "p-3 bg-slate-800/80 rounded-lg border border-slate-700/60 text-xs space-y-1.5";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-slate-100">${r.Ejercicio}</span>
+                        <span class="px-2 py-0.5 bg-slate-700 text-slate-300 rounded text-[10px]">${r.Grupo}</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1 text-center text-slate-400 pt-1 border-t border-slate-700/40">
+                        <div>S1: <b class="text-slate-200">${r.S1PESO || 0}kg</b> x ${r.S1Reps || 0}</div>
+                        <div>S2: <b class="text-slate-200">${r.S2PESO || 0}kg</b> x ${r.S2Reps || 0}</div>
+                        <div>S3: <b class="text-slate-200">${r.S3PESO || 0}kg</b> x ${r.S3Reps || 0}</div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            document.getElementById('inspector-summary').classList.remove('hidden');
+            document.getElementById('session-total-vol').innerText = totalSessionVol.toLocaleString('es-ES') + ' kg';
+        }
+
+        // 5. Exercise Progress Chart
+        function populateExerciseSelect() {
+            const select = document.getElementById('exerciseSelect');
+            select.innerHTML = '';
+            const exercises = [...new Set(rawData.map(r => r.Ejercicio))].sort();
+
+            exercises.forEach(ex => {
+                const opt = document.createElement('option');
+                opt.value = ex;
+                opt.innerText = ex;
+                select.appendChild(opt);
+            });
+        }
+
+        function renderExerciseChart() {
+            const select = document.getElementById('exerciseSelect');
+            const selectedEx = select.value || rawData[0]?.Ejercicio;
+            if (!selectedEx) return;
+
+            const filtered = rawData.filter(r => r.Ejercicio === selectedEx).sort((a,b) => a.DateObj - b.DateObj);
+            const labels = filtered.map(r => r.DateFormatted);
+            const weights = filtered.map(r => r.MaxPeso);
+
+            const pr = Math.max(...weights, 0);
+            const lastWeight = weights[weights.length - 1] || 0;
+            const group = filtered[0]?.Grupo || '-';
+
+            document.getElementById('ex-stat-pr').innerText = pr + ' kg';
+            document.getElementById('ex-stat-last').innerText = lastWeight + ' kg';
+            document.getElementById('ex-stat-group').innerText = group;
+
+            const ctx = document.getElementById('exerciseChart').getContext('2d');
+            if (exerciseChartInstance) exerciseChartInstance.destroy();
+
+            exerciseChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Peso Máximo Movido (kg)',
+                        data: weights,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: '#f59e0b',
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        // 6. Overload Recommendation Engine
+        function renderOverloadRecommendations() {
+            const container = document.getElementById('overload-cards-grid');
+            container.innerHTML = '';
+
+            // Group by exercise and get latest session
+            const exerciseLastMap = {};
+            rawData.forEach(r => {
+                if (!exerciseLastMap[r.Ejercicio] || r.DateObj > exerciseLastMap[r.Ejercicio].DateObj) {
+                    exerciseLastMap[r.Ejercicio] = r;
+                }
+            });
+
+            Object.values(exerciseLastMap).slice(0, 6).forEach(item => {
+                const maxRepsS3 = item.S3Reps || 0;
+                let recText = "";
+                let recBadge = "";
+
+                if (maxRepsS3 >= 8) {
+                    recText = `Completaste ${maxRepsS3} reps en la última serie. Subir +2.5 kg la próxima sesión.`;
+                    recBadge = `<span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-[10px] font-bold">Subir Carga</span>`;
+                } else {
+                    recText = `Lograste ${maxRepsS3} reps. Mantener peso (${item.MaxPeso} kg) y consolidar 8 repeticiones fijas.`;
+                    recBadge = `<span class="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[10px] font-bold">Consolidar</span>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = "p-4 bg-slate-800/60 rounded-xl border border-slate-700/50 space-y-2";
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-sm text-slate-100">${item.Ejercicio}</span>
+                        ${recBadge}
+                    </div>
+                    <p class="text-xs text-slate-400">${recText}</p>
+                    <div class="text-[11px] text-slate-500 pt-1 border-t border-slate-700/40">Última sesión: ${item.DateFormatted}</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Initial Data Fetch
+        fetchCSVData();
+    </script>
 </body>
 </html>
+"""
+
+with open('index.html', 'w', encoding='utf-8') as f:
+    f.write(html_content)
+
+print("Created index.html successfully!")
