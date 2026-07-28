@@ -1,279 +1,202 @@
 <!DOCTYPE html>
-<html lang="es" class="dark">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RutinaOP - Smart Fitness & Performance Dashboard</title>
-    <!-- Tailwind CSS CDN -->
+    <title>RutinaOP - Gym Dashboard & Analytics</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        brand: {
-                            50: '#eef2ff',
-                            100: '#e0e7ff',
-                            500: '#6366f1',
-                            600: '#4f46e5',
-                            700: '#4338ca',
-                            800: '#3730a3',
-                            900: '#312e81',
-                        },
-                        push: '#3b82f6',
-                        pull: '#10b981',
-                        legs: '#8b5cf6',
-                    }
-                }
-            }
-        }
-    </script>
-    <!-- FontAwesome CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js CDN -->
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- PapaParse CDN for CSV Fetching -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f8fafc; }
         .glass-card {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(12px);
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1rem;
         }
-        .glass-card:hover {
-            border-color: rgba(99, 102, 241, 0.3);
+        .nav-btn.active {
+            background-color: #4f46e5;
+            color: #ffffff;
+            box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.38);
         }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
+        .calendar-day {
+            min-height: 80px;
+            transition: all 0.2s ease;
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #1e293b;
+        .calendar-day:hover {
+            transform: translateY(-2px);
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #475569;
-            border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #6366f1;
-        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+<body class="min-h-screen p-3 md:p-6 pb-12">
 
-    <!-- TOP NAVBAR -->
-    <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-900/90 backdrop-blur-md px-4 lg:px-8 py-3 transition-all">
-        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                    <i class="fa-solid fa-dumbbell text-white text-lg"></i>
-                </div>
-                <div>
-                    <h1 class="font-extrabold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-indigo-200">
-                        RutinaOP <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 font-semibold border border-indigo-500/30 ml-1">Smart Analytics</span>
-                    </h1>
-                    <p class="text-xs text-slate-400">Dashboard de Entrenamiento & Seguimiento de Progreso</p>
-                </div>
+    <!-- Header Navigation -->
+    <header class="max-w-7xl mx-auto mb-6 glass-card p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-3 z-50">
+        <div class="flex items-center gap-3">
+            <div class="p-3 bg-indigo-600/20 text-indigo-400 rounded-xl border border-indigo-500/30">
+                <i data-lucide="dumbbell" class="w-7 h-7"></i>
             </div>
-
-            <!-- Header Quick Info & Date Range -->
-            <div class="flex items-center gap-3">
-                <button onclick="fetchGoogleSheetsData()" id="btn-sync" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-xs text-indigo-300 transition-all font-semibold cursor-pointer active:scale-95">
-                    <i id="sync-icon" class="fa-solid fa-arrows-rotate"></i>
-                    <span id="sync-text">Sincronizar Sheets</span>
-                </button>
-                <div id="sync-badge" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-medium">
-                    <span id="sync-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span id="sync-status-text">Sheets Conectado</span>
-                </div>
+            <div>
+                <h1 class="text-xl md:text-2xl font-black bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    RutinaOP Analytics
+                </h1>
+                <p class="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                    <span id="sync-status" class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Sincronizado con Google Sheets (Publicado)
+                </p>
             </div>
         </div>
-    </header>
 
-    <!-- MAIN CONTAINER -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 space-y-6">
-
-        <!-- NAVIGATION TABS -->
-        <nav class="flex items-center p-1.5 rounded-xl bg-slate-900/90 border border-slate-800 overflow-x-auto custom-scrollbar gap-1">
-            <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn active flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap bg-indigo-600 text-white shadow-md shadow-indigo-600/20">
-                <i class="fa-solid fa-chart-pie"></i> Vista General
+        <!-- Navigation Tabs -->
+        <nav class="flex flex-wrap items-center gap-2 bg-slate-900/80 p-1.5 rounded-xl border border-slate-800">
+            <button onclick="switchTab('tab-general')" id="btn-tab-general" class="nav-btn active px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-2">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> General
             </button>
-            <button onclick="switchTab('goals')" id="tab-goals" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all whitespace-nowrap">
-                <i class="fa-solid fa-bullseye text-amber-400"></i> Metas & PRs
+            <button onclick="switchTab('tab-calendar')" id="btn-tab-calendar" class="nav-btn px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-2">
+                <i data-lucide="calendar" class="w-4 h-4"></i> Calendario
             </button>
-            <button onclick="switchTab('calendar')" id="tab-calendar" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all whitespace-nowrap">
-                <i class="fa-solid fa-calendar-days text-indigo-400"></i> Calendario
+            <button onclick="switchTab('tab-metas')" id="btn-tab-metas" class="nav-btn px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-2">
+                <i data-lucide="target" class="w-4 h-4"></i> Metas vs PRs
             </button>
-            <button onclick="switchTab('exercise')" id="tab-exercise" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all whitespace-nowrap">
-                <i class="fa-solid fa-chart-line text-emerald-400"></i> Detalle Ejercicio
+            <button onclick="switchTab('tab-ejercicios')" id="btn-tab-ejercicios" class="nav-btn px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-2">
+                <i data-lucide="line-chart" class="w-4 h-4"></i> Ejercicios
             </button>
-            <button onclick="switchTab('overload')" id="tab-overload" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all whitespace-nowrap">
-                <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> Sobrecarga Progresiva
+            <button onclick="switchTab('tab-overload')" id="btn-tab-overload" class="nav-btn px-3.5 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-2">
+                <i data-lucide="zap" class="w-4 h-4"></i> Sobrecarga
             </button>
         </nav>
 
-        <!-- ================= TAB 1: VISTA GENERAL ================= -->
-        <section id="content-overview" class="tab-content space-y-6">
-            
-            <!-- TOP KPI CARDS -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                
-                <!-- KPI 1 -->
-                <div class="glass-card rounded-2xl p-5 relative overflow-hidden group">
-                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition-all"></div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Volumen Acumulado</span>
-                        <div class="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-                            <i class="fa-solid fa-weight-hanging"></i>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <div class="text-3xl font-extrabold text-white" id="kpi-total-volume">73,305 kg</div>
-                        <div class="flex items-center gap-1.5 mt-1 text-xs text-emerald-400 font-medium">
-                            <i class="fa-solid fa-arrow-trend-up"></i>
-                            <span>8 sesiones registradas</span>
-                        </div>
-                    </div>
-                </div>
+        <button onclick="fetchCSVData()" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 transition-colors flex items-center justify-center">
+            <i data-lucide="refresh-cw" class="w-4 h-4" id="refresh-icon"></i>
+        </button>
+    </header>
 
-                <!-- KPI 2 -->
-                <div class="glass-card rounded-2xl p-5 relative overflow-hidden group">
-                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all"></div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Prom. Volumen / Sesión</span>
-                        <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                            <i class="fa-solid fa-fire"></i>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <div class="text-3xl font-extrabold text-white" id="kpi-avg-volume">9,163 kg</div>
-                        <div class="text-xs text-slate-400 mt-1">Máx: 12,055 kg (Pierna)</div>
-                    </div>
-                </div>
+    <!-- Main Dynamic Content Container -->
+    <main class="max-w-7xl mx-auto space-y-6">
 
-                <!-- KPI 3 -->
-                <div class="glass-card rounded-2xl p-5 relative overflow-hidden group">
-                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-all"></div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Metas Superadas</span>
-                        <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-                            <i class="fa-solid fa-trophy"></i>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <div class="text-3xl font-extrabold text-white" id="kpi-goals-met">11 / 19</div>
-                        <div class="flex items-center gap-1.5 mt-1 text-xs text-amber-400 font-medium">
-                            <i class="fa-solid fa-circle-check"></i>
-                            <span>57.9% de objetivos logrados</span>
-                        </div>
-                    </div>
+        <!-- 1. VISTA GENERAL -->
+        <div id="tab-general" class="tab-content space-y-6">
+            <!-- KPIs -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card p-5">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Sesiones</span>
+                    <div class="text-3xl font-black text-white" id="kpi-sessions">0</div>
+                    <span class="text-[11px] text-slate-500 mt-1 block">Días registrados</span>
                 </div>
-
-                <!-- KPI 4 -->
-                <div class="glass-card rounded-2xl p-5 relative overflow-hidden group">
-                    <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all"></div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Distribución Rutinas</span>
-                        <div class="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                            <i class="fa-solid fa-layer-group"></i>
-                        </div>
-                    </div>
-                    <div class="mt-3">
-                        <div class="text-3xl font-extrabold text-white">3 Push / 3 Pull / 2 Legs</div>
-                        <div class="text-xs text-slate-400 mt-1">Consistencia Push-Pull-Legs</div>
-                    </div>
+                <div class="glass-card p-5">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Volumen Total</span>
+                    <div class="text-3xl font-black text-amber-400" id="kpi-volume">0 kg</div>
+                    <span class="text-[11px] text-slate-500 mt-1 block">Peso x Repeticiones</span>
                 </div>
-
+                <div class="glass-card p-5">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Promedio / Sesión</span>
+                    <div class="text-3xl font-black text-emerald-400" id="kpi-avg">0 kg</div>
+                    <span class="text-[11px] text-slate-500 mt-1 block">Carga media diaria</span>
+                </div>
+                <div class="glass-card p-5">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Catálogo Ejercicios</span>
+                    <div class="text-3xl font-black text-indigo-400" id="kpi-exercises">0</div>
+                    <span class="text-[11px] text-slate-500 mt-1 block">Ejercicios activos</span>
+                </div>
             </div>
 
-            <!-- CHARTS ROW 1 -->
+            <!-- Charts Row -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Main Volume Chart (2 cols) -->
-                <div class="lg:col-span-2 glass-card rounded-2xl p-5 space-y-4">
-                    <div class="flex items-center justify-between">
+                <div class="glass-card p-6 lg:col-span-2">
+                    <h2 class="text-base font-bold text-white mb-1">Volumen por Sesión y Rutina</h2>
+                    <p class="text-xs text-slate-400 mb-6">Comparativa de carga movida por fecha y tipo de rutina</p>
+                    <div class="h-72"><canvas id="volumeChart"></canvas></div>
+                </div>
+
+                <div class="glass-card p-6">
+                    <h2 class="text-base font-bold text-white mb-1">Distribución Muscular</h2>
+                    <p class="text-xs text-slate-400 mb-6">Porcentaje de trabajo por grupo</p>
+                    <div class="h-72 flex items-center justify-center"><canvas id="muscleChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. VISTA CALENDARIO -->
+        <div id="tab-calendar" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Full Calendar -->
+                <div class="glass-card p-6 lg:col-span-2">
+                    <div class="flex items-center justify-between mb-6">
                         <div>
-                            <h3 class="font-bold text-lg text-white flex items-center gap-2">
-                                <i class="fa-solid fa-chart-column text-indigo-400"></i> Volumen Entrenado por Sesión
-                            </h3>
-                            <p class="text-xs text-slate-400">Cálculo de Volumen Total = Σ (Peso × Repeticiones) por entrenamiento</p>
+                            <h2 class="text-lg font-bold text-white">Calendario de Entrenamientos</h2>
+                            <p class="text-xs text-slate-400">Haz clic en cualquier día marcado para inspeccionar la sesión</p>
                         </div>
-                        <div class="flex items-center gap-2 text-xs">
-                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30"><span class="w-2 h-2 rounded-full bg-blue-400"></span>Push</span>
-                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"><span class="w-2 h-2 rounded-full bg-emerald-400"></span>Pull</span>
-                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30"><span class="w-2 h-2 rounded-full bg-purple-400"></span>Legs</span>
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center gap-1.5 text-xs text-slate-300"><span class="w-3 h-3 rounded-full bg-blue-500"></span> Push</span>
+                            <span class="flex items-center gap-1.5 text-xs text-slate-300"><span class="w-3 h-3 rounded-full bg-purple-500"></span> Pull</span>
+                            <span class="flex items-center gap-1.5 text-xs text-slate-300"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> Legs</span>
                         </div>
                     </div>
-                    <div class="h-72 relative">
-                        <canvas id="chart-volume-trend"></canvas>
+
+                    <div class="flex items-center justify-between mb-4 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                        <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-800 rounded-lg text-slate-300"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                        <span id="calendar-month-year" class="font-bold text-slate-200 text-sm md:text-base">Julio 2026</span>
+                        <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-800 rounded-lg text-slate-300"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
                     </div>
+
+                    <div class="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-slate-400 mb-2">
+                        <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
+                    </div>
+                    <div id="calendar-grid" class="grid grid-cols-7 gap-2"></div>
                 </div>
 
-                <!-- Muscle Distribution Doughnut (1 col) -->
-                <div class="glass-card rounded-2xl p-5 space-y-4">
+                <!-- Session Inspector Sidebar -->
+                <div class="glass-card p-6 flex flex-col justify-between">
                     <div>
-                        <h3 class="font-bold text-lg text-white flex items-center gap-2">
-                            <i class="fa-solid fa-chart-pie text-purple-400"></i> Volumen por Grupo Muscular
-                        </h3>
-                        <p class="text-xs text-slate-400">Proporción de tonelaje movido según grupo</p>
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+                            <h2 class="text-base font-bold text-white flex items-center gap-2">
+                                <i data-lucide="clipboard-list" class="w-5 h-5 text-indigo-400"></i>
+                                Detalle de la Sesión
+                            </h2>
+                            <span id="selected-date-badge" class="px-2.5 py-1 bg-indigo-500/20 text-indigo-300 text-xs font-semibold rounded-full border border-indigo-500/30">
+                                Sin Selección
+                            </span>
+                        </div>
+
+                        <div id="inspector-content" class="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                            <div class="text-center py-16 text-slate-500 text-sm">
+                                Toca un día entrenado en el calendario para ver los ejercicios, peso y reps.
+                            </div>
+                        </div>
                     </div>
-                    <div class="h-64 relative flex items-center justify-center">
-                        <canvas id="chart-muscle-dist"></canvas>
+
+                    <div id="inspector-summary" class="mt-4 pt-4 border-t border-slate-800 text-xs text-slate-400 hidden">
+                        <div class="flex justify-between font-bold text-slate-200">
+                            <span>Volumen de la Sesión:</span>
+                            <span id="session-total-vol" class="text-amber-400 text-sm">0 kg</span>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- RECENT SESSIONS TABLE -->
-            <div class="glass-card rounded-2xl p-5 space-y-4">
-                <div class="flex items-center justify-between">
-                    <h3 class="font-bold text-lg text-white flex items-center gap-2">
-                        <i class="fa-solid fa-list-check text-indigo-400"></i> Resumen de Sesiones Recientes
-                    </h3>
-                    <span class="text-xs text-slate-400">Haz clic en cualquier sesión para ver detalles en el calendario</span>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="text-xs uppercase bg-slate-800/80 text-slate-400 border-b border-slate-700">
-                            <tr>
-                                <th class="p-3 rounded-l-lg">Fecha</th>
-                                <th class="p-3">Rutina</th>
-                                <th class="p-3">Ejercicios Realizados</th>
-                                <th class="p-3 text-right">Volumen Total</th>
-                                <th class="p-3 text-center rounded-r-lg">Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody id="overview-sessions-table-body" class="divide-y divide-slate-800 text-slate-300">
-                            <!-- Populated via JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        </section>
-
-        <!-- ================= TAB 2: METAS Y PRS ================= -->
-        <section id="content-goals" class="tab-content hidden space-y-6">
-            
-            <div class="glass-card rounded-2xl p-5 space-y-4">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <!-- 3. VISTA METAS VS PRS -->
+        <div id="tab-metas" class="tab-content hidden space-y-6">
+            <div class="glass-card p-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                     <div>
-                        <h3 class="font-bold text-xl text-white flex items-center gap-2">
-                            <i class="fa-solid fa-bullseye text-amber-400"></i> Cumplimiento de Metas & Máximos Históricos (PRs)
-                        </h3>
-                        <p class="text-xs text-slate-400">Comparativa entre el peso objetivo definido y el peso máximo alcanzado en las 3 series</p>
+                        <h2 class="text-lg font-bold text-white">Cumplimiento de Metas vs Récords Personales (PRs)</h2>
+                        <p class="text-xs text-slate-400">Comparativa del peso máximo alcanzado contra los objetivos definidos</p>
                     </div>
-                    
-                    <!-- Filter Muscle Group -->
                     <div class="flex items-center gap-2">
-                        <label for="filter-muscle-group" class="text-xs text-slate-400 whitespace-nowrap">Grupo Muscular:</label>
-                        <select id="filter-muscle-group" onchange="renderGoalsGrid()" class="bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500">
-                            <option value="ALL">Todos los Grupos</option>
+                        <select id="filterGroupMeta" onchange="renderMetasView()" class="bg-slate-900 border border-slate-800 text-xs text-slate-200 rounded-lg px-3 py-2">
+                            <option value="ALL">Todos los Grupos Musculares</option>
                             <option value="Pecho">Pecho</option>
                             <option value="Espalda">Espalda</option>
                             <option value="Pierna">Pierna</option>
@@ -284,1091 +207,521 @@
                     </div>
                 </div>
 
-                <!-- META COMPLIANCE CHART -->
-                <div class="h-80 relative pt-2">
-                    <canvas id="chart-goals-bar"></canvas>
-                </div>
-            </div>
-
-            <!-- EXERCISE GOAL CARDS GRID -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="goals-cards-container">
-                <!-- Populated via JS -->
-            </div>
-
-        </section>
-
-        <!-- ================= TAB 3: CALENDARIO DE ENTRENAMIENTOS ================= -->
-        <section id="content-calendar" class="tab-content hidden space-y-6">
-            
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Calendar Widget (2 Cols) -->
-                <div class="lg:col-span-2 glass-card rounded-2xl p-5 space-y-4">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <h3 class="font-bold text-xl text-white flex items-center gap-2">
-                                <i class="fa-solid fa-calendar-days text-indigo-400"></i> Calendario de Entrenamientos
-                            </h3>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button onclick="changeMonth(-1)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">
-                                <i class="fa-solid fa-chevron-left"></i>
-                            </button>
-                            <span id="calendar-month-year" class="font-semibold text-sm text-indigo-300 px-2">Julio 2026</span>
-                            <button onclick="changeMonth(1)" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">
-                                <i class="fa-solid fa-chevron-right"></i>
-                            </button>
-                        </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 h-96">
+                        <canvas id="metasChart"></canvas>
                     </div>
 
-                    <!-- Legend -->
-                    <div class="flex flex-wrap items-center gap-4 text-xs pt-1 pb-2 border-b border-slate-800">
-                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span> Push</span>
-                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span> Pull</span>
-                        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-purple-500 inline-block"></span> Legs</span>
-                        <span class="flex items-center gap-1.5 text-slate-400"><span class="w-3 h-3 rounded-full bg-slate-700 inline-block"></span> Descanso</span>
-                    </div>
-
-                    <!-- Days Grid Header -->
-                    <div class="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-slate-400 uppercase">
-                        <div>Dom</div>
-                        <div>Lun</div>
-                        <div>Mar</div>
-                        <div>Mié</div>
-                        <div>Jue</div>
-                        <div>Vie</div>
-                        <div>Sáb</div>
-                    </div>
-
-                    <!-- Days Days Cells -->
-                    <div id="calendar-days-grid" class="grid grid-cols-7 gap-2">
-                        <!-- Populated dynamically via JS -->
+                    <div id="metas-cards-container" class="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                        <!-- Goal Progress Cards -->
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <!-- Selected Day Details Side Inspector (1 Col) -->
-                <div class="glass-card rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+        <!-- 4. VISTA EJERCICIOS -->
+        <div id="tab-ejercicios" class="tab-content hidden space-y-6">
+            <div class="glass-card p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div>
-                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                            <h4 class="font-bold text-lg text-white flex items-center gap-2">
-                                <i class="fa-solid fa-clipboard-list text-emerald-400"></i> Detalle de la Sesión
-                            </h4>
-                            <span id="selected-date-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 border border-slate-700">
-                                Selecciona un día
-                            </span>
-                        </div>
-
-                        <div id="session-detail-content" class="mt-4 space-y-4 custom-scrollbar overflow-y-auto max-h-[460px]">
-                            <div class="text-center py-12 text-slate-500 space-y-2">
-                                <i class="fa-regular fa-hand-pointer text-3xl opacity-40"></i>
-                                <p class="text-xs">Haz clic en un día del calendario resaltado para ver la rutina realizada, series, pesos y reps.</p>
-                            </div>
-                        </div>
+                        <h2 class="text-lg font-bold text-white">Evolución por Ejercicio Individual</h2>
+                        <p class="text-xs text-slate-400">Selecciona un ejercicio para ver el histórico de fuerza</p>
                     </div>
+                    <select id="exerciseSelect" onchange="renderExerciseChart()" class="bg-slate-900 border border-slate-800 text-sm text-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500">
+                    </select>
+                </div>
 
-                    <!-- Quick Summary Footer in Panel -->
-                    <div id="session-detail-footer" class="hidden p-3 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs space-y-1">
-                        <div class="flex justify-between text-slate-300">
-                            <span>Ejercicios Totales:</span>
-                            <span id="footer-ex-count" class="font-bold text-white">0</span>
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-center">
+                    <div class="lg:col-span-3 h-80">
+                        <canvas id="exerciseChart"></canvas>
+                    </div>
+                    <div class="space-y-4 bg-slate-900/60 p-5 rounded-xl border border-slate-800">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Métricas Clave</h3>
+                        <div>
+                            <span class="text-xs text-slate-500 block">Récord Personal (PR)</span>
+                            <span id="ex-stat-pr" class="text-3xl font-black text-amber-400">0 kg</span>
                         </div>
-                        <div class="flex justify-between text-slate-300">
-                            <span>Volumen Movido:</span>
-                            <span id="footer-vol-sum" class="font-bold text-emerald-400">0 kg</span>
+                        <div>
+                            <span class="text-xs text-slate-500 block">Último Peso Usado</span>
+                            <span id="ex-stat-last" class="text-xl font-bold text-slate-200">0 kg</span>
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-500 block">Grupo Muscular</span>
+                            <span id="ex-stat-group" class="text-sm font-semibold text-indigo-400">-</span>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-        </section>
-
-        <!-- ================= TAB 4: DETALLE DE EJERCICIO ================= -->
-        <section id="content-exercise" class="tab-content hidden space-y-6">
-            
-            <div class="glass-card rounded-2xl p-5 space-y-4">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <!-- 5. VISTA SOBRECARGA PROGRESIVA -->
+        <div id="tab-overload" class="tab-content hidden space-y-6">
+            <div class="glass-card p-6">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="p-3 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
+                        <i data-lucide="sparkles" class="w-6 h-6"></i>
+                    </div>
                     <div>
-                        <h3 class="font-bold text-xl text-white flex items-center gap-2">
-                            <i class="fa-solid fa-chart-line text-emerald-400"></i> Análisis Individual de Ejercicio
-                        </h3>
-                        <p class="text-xs text-slate-400">Evolución de carga máxima y volumen en cada sesión registrada</p>
-                    </div>
-
-                    <!-- Exercise Dropdown Selector -->
-                    <div class="w-full md:w-72">
-                        <label for="select-exercise-detail" class="text-xs text-slate-400 block mb-1">Selecciona Ejercicio:</label>
-                        <select id="select-exercise-detail" onchange="updateExerciseDetailView()" class="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-500 font-medium">
-                            <!-- Populated via JS -->
-                        </select>
+                        <h2 class="text-lg font-bold text-white">Asistente Inteligente de Cargas</h2>
+                        <p class="text-xs text-slate-400">Sugerencias automáticas para tu próxima sesión de entrenamiento</p>
                     </div>
                 </div>
 
-                <!-- Exercise Quick Stats Header -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                    <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
-                        <span class="text-[11px] uppercase tracking-wider text-slate-400 block">Grupo</span>
-                        <span id="ex-detail-group" class="font-bold text-sm text-indigo-300">-</span>
-                    </div>
-                    <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
-                        <span class="text-[11px] uppercase tracking-wider text-slate-400 block">Record Máximo (PR)</span>
-                        <span id="ex-detail-pr" class="font-bold text-sm text-emerald-400">-</span>
-                    </div>
-                    <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
-                        <span class="text-[11px] uppercase tracking-wider text-slate-400 block">Meta Definida</span>
-                        <span id="ex-detail-meta" class="font-bold text-sm text-amber-400">-</span>
-                    </div>
-                    <div class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
-                        <span class="text-[11px] uppercase tracking-wider text-slate-400 block">% Cumplimiento</span>
-                        <span id="ex-detail-pct" class="font-bold text-sm text-white">-</span>
-                    </div>
-                </div>
-
-                <!-- Single Exercise Progression Chart -->
-                <div class="h-72 relative pt-2">
-                    <canvas id="chart-exercise-progression"></canvas>
+                <div id="overload-cards-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Cards -->
                 </div>
             </div>
-
-            <!-- History Table for selected exercise -->
-            <div class="glass-card rounded-2xl p-5 space-y-3">
-                <h4 class="font-bold text-md text-white flex items-center gap-2">
-                    <i class="fa-solid fa-history text-indigo-400"></i> Historial de Series Registradas
-                </h4>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="text-xs uppercase bg-slate-800/80 text-slate-400 border-b border-slate-700">
-                            <tr>
-                                <th class="p-3 rounded-l-lg">Fecha</th>
-                                <th class="p-3">Serie 1</th>
-                                <th class="p-3">Serie 2</th>
-                                <th class="p-3">Serie 3</th>
-                                <th class="p-3 text-right">Máx Peso</th>
-                                <th class="p-3 text-right rounded-r-lg">Volumen Ejercicio</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ex-detail-table-body" class="divide-y divide-slate-800 text-slate-300">
-                            <!-- Populated via JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        </section>
-
-        <!-- ================= TAB 5: SOBRECARGA PROGRESIVA ================= -->
-        <section id="content-overload" class="tab-content hidden space-y-6">
-            
-            <div class="glass-card rounded-2xl p-5 space-y-4">
-                <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-                    <div>
-                        <h3 class="font-bold text-xl text-white flex items-center gap-2">
-                            <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i> Asistente de Sobrecarga Progresiva
-                        </h3>
-                        <p class="text-xs text-slate-400">Recomendaciones automatizadas basadas en tus repeticiones y peso en la última sesión registrada</p>
-                    </div>
-                    <div class="px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300 font-semibold flex items-center gap-1.5">
-                        <i class="fa-solid fa-robot"></i> Inteligencia de Carga
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs space-y-1">
-                        <span class="font-bold text-indigo-300 block text-sm">🟢 Rango Ideal (8 Reps)</span>
-                        <p class="text-slate-300">Si completaste 8+ reps en todas las series, el motor sugiere **aumentar +2.5 kg a +5 kg** en la siguiente sesión.</p>
-                    </div>
-                    <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1">
-                        <span class="font-bold text-amber-300 block text-sm">🟡 Consolidación (6-7 Reps)</span>
-                        <p class="text-slate-300">Mantener el mismo peso y buscar completar las 8 repeticiones en todas las series antes de subir peso.</p>
-                    </div>
-                    <div class="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs space-y-1">
-                        <span class="font-bold text-purple-300 block text-sm">🏆 Meta Alcanzada</span>
-                        <p class="text-slate-300">Si superaste la meta inicial, se establece automáticamente un **nuevo objetivo +10%**.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Overload Recommendations Cards Container -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="overload-cards-container">
-                <!-- Populated via JS -->
-            </div>
-
-        </section>
+        </div>
 
     </main>
 
-    <!-- FOOTER -->
-    <footer class="mt-auto border-t border-slate-800/80 bg-slate-900/60 py-4 px-4 text-center text-xs text-slate-500">
-        <p>RutinaOP Dashboard • Análisis Inteligente de Datos de Entrenamiento • Generado para Optimización de Hipertrofia y Fuerza</p>
-    </footer>
-
-    <!-- JAVASCRIPT LOGIC -->
     <script>
-        const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRWBVaIOG8-yplUBgSDbZBCH9jbET5g_sjEHUOzitSytMonlpknrH5dAvyESVdD9vldvquvEt4EbZyn/pub?output=csv";
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRWBVaIOG8-yplUBgSDbZBCH9jbET5g_sjEHUOzitSytMonlpknrH5dAvyESVdD9vldvquvEt4EbZyn/pub?output=csv';
 
-        // RAW INITIAL / FALLBACK DATA
-        let workoutLog = [
-            // 2026-07-08 PUSH
-            { fecha: "2026-07-08", rutina: "Push", grupo: "Pecho", ejercicio: "press de pecho", s1peso: 45, s1reps: 8, s2peso: 45, s2reps: 8, s3peso: 45, s3reps: 6 },
-            { fecha: "2026-07-08", rutina: "Push", grupo: "Pecho", ejercicio: "inclinado", s1peso: 25, s1reps: 8, s2peso: 35, s2reps: 8, s3peso: 35, s3reps: 8 },
-            { fecha: "2026-07-08", rutina: "Push", grupo: "Pecho", ejercicio: "Peck deek", s1peso: 100, s1reps: 7, s2peso: 100, s2reps: 6, s3peso: 100, s3reps: 7 },
-            { fecha: "2026-07-08", rutina: "Push", grupo: "Hombro", ejercicio: "press de pecho mancuerna", s1peso: 40, s1reps: 8, s2peso: 40, s2reps: 7, s3peso: 40, s3reps: 6 },
-            { fecha: "2026-07-08", rutina: "Push", grupo: "Tricep", ejercicio: "Copa", s1peso: 45, s1reps: 8, s2peso: 45, s2reps: 8, s3peso: 45, s3reps: 8 },
-            { fecha: "2026-07-08", rutina: "Push", grupo: "Tricep", ejercicio: "Tricep", s1peso: 70, s1reps: 8, s2peso: 70, s2reps: 8, s3peso: 70, s3reps: 8 },
-            { fecha: "2026-07-08", rutina: "Push", grupo: "Hombro", ejercicio: "Elevaciones laterales", s1peso: 20, s1reps: 8, s2peso: 20, s2reps: 8, s3peso: 20, s3reps: 8 },
+        // Predefined Metas
+        const METAS_MAP = {
+            'press de pecho': 50, 'inclinado': 40, 'Peck deek': 100,
+            'press de pecho mancuerna': 30, 'Copa': 45, 'Tricep': 90,
+            'Elevaciones laterales': 20, 'Dominadas': 120, 'Remo': 120,
+            'Peck deek invertido': 80, 'Martillo': 30, 'curl con barra z': 50,
+            'Fondos': 120, 'Sentadilla': 70, 'Peso muerto': 80,
+            'Curl femoral': 100, 'Abductores': 120, 'Aductores': 120, 'Pantorilla': 180
+        };
 
-            // 2026-07-10 PULL
-            { fecha: "2026-07-10", rutina: "Pull", grupo: "Espalda", ejercicio: "Dominadas", s1peso: 120, s1reps: 8, s2peso: 120, s2reps: 8, s3peso: 120, s3reps: 8 },
-            { fecha: "2026-07-10", rutina: "Pull", grupo: "Espalda", ejercicio: "Remo", s1peso: 120, s1reps: 8, s2peso: 120, s2reps: 8, s3peso: 120, s3reps: 8 },
-            { fecha: "2026-07-10", rutina: "Pull", grupo: "Espalda", ejercicio: "Peck deek invertido", s1peso: 80, s1reps: 8, s2peso: 90, s2reps: 8, s3peso: 90, s3reps: 8 },
-            { fecha: "2026-07-10", rutina: "Pull", grupo: "Bicep", ejercicio: "Martillo", s1peso: 30, s1reps: 8, s2peso: 30, s2reps: 8, s3peso: 30, s3reps: 8 },
-            { fecha: "2026-07-10", rutina: "Pull", grupo: "Bicep", ejercicio: "curl con barra z", s1peso: 30, s1reps: 8, s2peso: 30, s2reps: 8, s3peso: 30, s3reps: 8 },
-            { fecha: "2026-07-10", rutina: "Pull", grupo: "Tricep", ejercicio: "Fondos", s1peso: 60, s1reps: 8, s2peso: 60, s2reps: 8, s3peso: 60, s3reps: 8 },
+        let rawData = [];
+        let volumeChartInstance = null;
+        let muscleChartInstance = null;
+        let exerciseChartInstance = null;
+        let metasChartInstance = null;
+        let currentCalendarDate = new Date(2026, 6, 1);
 
-            // 2026-07-11 LEGS
-            { fecha: "2026-07-11", rutina: "Legs", grupo: "Pierna", ejercicio: "Sentadilla", s1peso: 70, s1reps: 8, s2peso: 70, s2reps: 8, s3peso: 70, s3reps: 8 },
-            { fecha: "2026-07-11", rutina: "Legs", grupo: "Pierna", ejercicio: "Peso muerto", s1peso: 80, s1reps: 8, s2peso: 80, s2reps: 8, s3peso: 80, s3reps: 8 },
-            { fecha: "2026-07-11", rutina: "Legs", grupo: "Pierna", ejercicio: "Curl femoral", s1peso: 80, s1reps: 8, s2peso: 90, s2reps: 8, s3peso: 90, s3reps: 8 },
-            { fecha: "2026-07-11", rutina: "Legs", grupo: "Pierna", ejercicio: "Abductores", s1peso: 90, s1reps: 8, s2peso: 90, s2reps: 8, s3peso: 90, s3reps: 8 },
-            { fecha: "2026-07-11", rutina: "Legs", grupo: "Pierna", ejercicio: "Aductores", s1peso: 90, s1reps: 8, s2peso: 105, s2reps: 8, s3peso: 105, s3reps: 8 },
-            { fecha: "2026-07-11", rutina: "Legs", grupo: "Pierna", ejercicio: "Pantorilla", s1peso: 120, s1reps: 8, s2peso: 135, s2reps: 8, s3peso: 150, s3reps: 8 },
-
-            // 2026-07-18 PUSH
-            { fecha: "2026-07-18", rutina: "Push", grupo: "Pecho", ejercicio: "press de pecho", s1peso: 45, s1reps: 8, s2peso: 50, s2reps: 8, s3peso: 70, s3reps: 6 },
-            { fecha: "2026-07-18", rutina: "Push", grupo: "Pecho", ejercicio: "inclinado", s1peso: 35, s1reps: 8, s2peso: 35, s2reps: 8, s3peso: 35, s3reps: 8 },
-            { fecha: "2026-07-18", rutina: "Push", grupo: "Pecho", ejercicio: "Peck deek", s1peso: 100, s1reps: 8, s2peso: 100, s2reps: 8, s3peso: 120, s3reps: 8 },
-            { fecha: "2026-07-18", rutina: "Push", grupo: "Hombro", ejercicio: "press de pecho mancuerna", s1peso: 40, s1reps: 8, s2peso: 40, s2reps: 8, s3peso: 45, s3reps: 6 },
-            { fecha: "2026-07-18", rutina: "Push", grupo: "Tricep", ejercicio: "Copa", s1peso: 45, s1reps: 8, s2peso: 45, s2reps: 8, s3peso: 50, s3reps: 6 },
-            { fecha: "2026-07-18", rutina: "Push", grupo: "Tricep", ejercicio: "Tricep", s1peso: 70, s1reps: 8, s2peso: 70, s2reps: 8, s3peso: 80, s3reps: 8 },
-            { fecha: "2026-07-18", rutina: "Push", grupo: "Hombro", ejercicio: "Elevaciones laterales", s1peso: 20, s1reps: 8, s2peso: 20, s2reps: 8, s3peso: 20, s3reps: 8 },
-
-            // 2026-07-21 PULL
-            { fecha: "2026-07-21", rutina: "Pull", grupo: "Espalda", ejercicio: "Dominadas", s1peso: 120, s1reps: 8, s2peso: 120, s2reps: 8, s3peso: 140, s3reps: 5 },
-            { fecha: "2026-07-21", rutina: "Pull", grupo: "Espalda", ejercicio: "Remo", s1peso: 120, s1reps: 8, s2peso: 135, s2reps: 8, s3peso: 150, s3reps: 5 },
-            { fecha: "2026-07-21", rutina: "Pull", grupo: "Espalda", ejercicio: "Peck deek invertido", s1peso: 90, s1reps: 8, s2peso: 105, s2reps: 8, s3peso: 120, s3reps: 8 },
-            { fecha: "2026-07-21", rutina: "Pull", grupo: "Bicep", ejercicio: "Martillo", s1peso: 30, s1reps: 8, s2peso: 30, s2reps: 8, s3peso: 30, s3reps: 7 },
-            { fecha: "2026-07-21", rutina: "Pull", grupo: "Bicep", ejercicio: "curl con barra z", s1peso: 30, s1reps: 8, s2peso: 30, s2reps: 8, s3peso: 30, s3reps: 7 },
-            { fecha: "2026-07-21", rutina: "Pull", grupo: "Tricep", ejercicio: "Fondos", s1peso: 60, s1reps: 8, s2peso: 60, s2reps: 8, s3peso: 60, s3reps: 8 },
-
-            // 2026-07-23 LEGS
-            { fecha: "2026-07-23", rutina: "Legs", grupo: "Pierna", ejercicio: "Sentadilla", s1peso: 70, s1reps: 8, s2peso: 70, s2reps: 8, s3peso: 70, s3reps: 8 },
-            { fecha: "2026-07-23", rutina: "Legs", grupo: "Pierna", ejercicio: "Peso muerto", s1peso: 80, s1reps: 8, s2peso: 80, s2reps: 8, s3peso: 90, s3reps: 8 },
-            { fecha: "2026-07-23", rutina: "Legs", grupo: "Pierna", ejercicio: "Curl femoral", s1peso: 90, s1reps: 8, s2peso: 90, s2reps: 8, s3peso: 90, s3reps: 8 },
-            { fecha: "2026-07-23", rutina: "Legs", grupo: "Pierna", ejercicio: "Abductores", s1peso: 90, s1reps: 8, s2peso: 90, s2reps: 8, s3peso: 90, s3reps: 8 },
-            { fecha: "2026-07-23", rutina: "Legs", grupo: "Pierna", ejercicio: "Aductores", s1peso: 105, s1reps: 8, s2peso: 105, s2reps: 8, s3peso: 105, s3reps: 8 },
-            { fecha: "2026-07-23", rutina: "Legs", grupo: "Pierna", ejercicio: "Pantorilla", s1peso: 135, s1reps: 8, s2peso: 150, s2reps: 8, s3peso: 150, s3reps: 8 },
-
-            // 2026-07-24 PUSH
-            { fecha: "2026-07-24", rutina: "Push", grupo: "Pecho", ejercicio: "press de pecho", s1peso: 50, s1reps: 8, s2peso: 50, s2reps: 8, s3peso: 50, s3reps: 8 },
-            { fecha: "2026-07-24", rutina: "Push", grupo: "Pecho", ejercicio: "inclinado", s1peso: 35, s1reps: 8, s2peso: 35, s2reps: 8, s3peso: 35, s3reps: 8 },
-            { fecha: "2026-07-24", rutina: "Push", grupo: "Pecho", ejercicio: "Peck deek", s1peso: 100, s1reps: 8, s2peso: 100, s2reps: 8, s3peso: 100, s3reps: 8 },
-            { fecha: "2026-07-24", rutina: "Push", grupo: "Hombro", ejercicio: "press de pecho mancuerna", s1peso: 40, s1reps: 8, s2peso: 40, s2reps: 8, s3peso: 40, s3reps: 8 },
-            { fecha: "2026-07-24", rutina: "Push", grupo: "Tricep", ejercicio: "Copa", s1peso: 45, s1reps: 8, s2peso: 45, s2reps: 8, s3peso: 45, s3reps: 8 },
-            { fecha: "2026-07-24", rutina: "Push", grupo: "Tricep", ejercicio: "Tricep", s1peso: 70, s1reps: 8, s2peso: 70, s2reps: 8, s3peso: 70, s3reps: 8 },
-            { fecha: "2026-07-24", rutina: "Push", grupo: "Hombro", ejercicio: "Elevaciones laterales", s1peso: 20, s1reps: 8, s2peso: 20, s2reps: 8, s3peso: 20, s3reps: 8 },
-
-            // 2026-07-25 PULL
-            { fecha: "2026-07-25", rutina: "Pull", grupo: "Espalda", ejercicio: "Dominadas", s1peso: 120, s1reps: 8, s2peso: 120, s2reps: 8, s3peso: 120, s3reps: 8 },
-            { fecha: "2026-07-25", rutina: "Pull", grupo: "Espalda", ejercicio: "Remo", s1peso: 135, s1reps: 8, s2peso: 145, s2reps: 8, s3peso: 160, s3reps: 5 },
-            { fecha: "2026-07-25", rutina: "Pull", grupo: "Espalda", ejercicio: "Peck deek invertido", s1peso: 105, s1reps: 8, s2peso: 120, s2reps: 8, s3peso: 135, s3reps: 7 },
-            { fecha: "2026-07-25", rutina: "Pull", grupo: "Bicep", ejercicio: "Martillo", s1peso: 30, s1reps: 8, s2peso: 30, s2reps: 8, s3peso: 30, s3reps: 8 },
-            { fecha: "2026-07-25", rutina: "Pull", grupo: "Bicep", ejercicio: "curl con barra z", s1peso: 30, s1reps: 8, s2peso: 30, s2reps: 8, s3peso: 30, s3reps: 8 },
-            { fecha: "2026-07-25", rutina: "Pull", grupo: "Tricep", ejercicio: "Fondos", s1peso: 60, s1reps: 8, s2peso: 60, s2reps: 8, s3peso: 60, s3reps: 8 }
-        ];
-
-        let goalsData = [
-            { grupo: "Pecho", ejercicio: "press de pecho", meta: 50 },
-            { grupo: "Pecho", ejercicio: "inclinado", meta: 40 },
-            { grupo: "Pecho", ejercicio: "Peck deek", meta: 100 },
-            { grupo: "Hombro", ejercicio: "press de pecho mancuerna", meta: 30 },
-            { grupo: "Tricep", ejercicio: "Copa", meta: 45 },
-            { grupo: "Tricep", ejercicio: "Tricep", meta: 90 },
-            { grupo: "Hombro", ejercicio: "Elevaciones laterales", meta: 20 },
-            { grupo: "Espalda", ejercicio: "Dominadas", meta: 120 },
-            { grupo: "Espalda", ejercicio: "Remo", meta: 120 },
-            { grupo: "Espalda", ejercicio: "Peck deek invertido", meta: 80 },
-            { grupo: "Bicep", ejercicio: "Martillo", meta: 30 },
-            { grupo: "Bicep", ejercicio: "curl con barra z", meta: 50 },
-            { grupo: "Tricep", ejercicio: "Fondos", meta: 120 },
-            { grupo: "Pierna", ejercicio: "Sentadilla", meta: 70 },
-            { grupo: "Pierna", ejercicio: "Peso muerto", meta: 80 },
-            { grupo: "Pierna", ejercicio: "Curl femoral", meta: 100 },
-            { grupo: "Pierna", ejercicio: "Abductores", meta: 120 },
-            { grupo: "Pierna", ejercicio: "Aductores", meta: 120 },
-            { grupo: "Pierna", ejercicio: "Pantorilla", meta: 180 }
-        ];
-
-        // Global State Variables
-        let sessionsByDate = {};
-        let maxPrByExercise = {};
-
-        function recalculateMetrics() {
-            // Volume calculation
-            workoutLog.forEach(row => {
-                row.vol1 = (Number(row.s1peso) || 0) * (Number(row.s1reps) || 0);
-                row.vol2 = (Number(row.s2peso) || 0) * (Number(row.s2reps) || 0);
-                row.vol3 = (Number(row.s3peso) || 0) * (Number(row.s3reps) || 0);
-                row.totalVol = row.vol1 + row.vol2 + row.vol3;
-                row.maxWeight = Math.max(Number(row.s1peso) || 0, Number(row.s2peso) || 0, Number(row.s3peso) || 0);
-            });
-
-            // Sessions grouped by Date
-            sessionsByDate = {};
-            workoutLog.forEach(row => {
-                if (!sessionsByDate[row.fecha]) {
-                    sessionsByDate[row.fecha] = {
-                        fecha: row.fecha,
-                        rutina: row.rutina,
-                        totalVolumen: 0,
-                        ejercicios: []
-                    };
-                }
-                sessionsByDate[row.fecha].totalVolumen += row.totalVol;
-                sessionsByDate[row.fecha].ejercicios.push(row);
-            });
-
-            // Max PRs per exercise
-            maxPrByExercise = {};
-            workoutLog.forEach(row => {
-                if (!maxPrByExercise[row.ejercicio] || row.maxWeight > maxPrByExercise[row.ejercicio]) {
-                    maxPrByExercise[row.ejercicio] = row.maxWeight;
-                }
-            });
-
-            // Update Header & Dashboard KPIs
-            const dates = Object.keys(sessionsByDate).sort();
-            const totalVol = workoutLog.reduce((acc, curr) => acc + curr.totalVol, 0);
-            const totalSessions = dates.length;
-            const avgVol = totalSessions > 0 ? Math.round(totalVol / totalSessions) : 0;
-
-            const kpiVolEl = document.getElementById('kpi-total-volume');
-            if (kpiVolEl) kpiVolEl.textContent = `${totalVol.toLocaleString()} kg`;
-
-            const kpiAvgEl = document.getElementById('kpi-avg-volume');
-            if (kpiAvgEl) kpiAvgEl.textContent = `${avgVol.toLocaleString()} kg`;
-
-            let metGoalsCount = 0;
-            goalsData.forEach(g => {
-                const pr = maxPrByExercise[g.ejercicio] || 0;
-                if (pr >= g.meta) metGoalsCount++;
-            });
-
-            const kpiGoalsEl = document.getElementById('kpi-goals-met');
-            if (kpiGoalsEl) {
-                const totalGoals = goalsData.length;
-                const pctMet = totalGoals > 0 ? ((metGoalsCount / totalGoals) * 100).toFixed(1) : 0;
-                kpiGoalsEl.textContent = `${metGoalsCount} / ${totalGoals}`;
-            }
-        }
-
-        async function fetchGoogleSheetsData() {
-            const icon = document.getElementById('sync-icon');
-            const text = document.getElementById('sync-text');
-            const statusText = document.getElementById('sync-status-text');
-            const badge = document.getElementById('sync-badge');
-            const dot = document.getElementById('sync-dot');
-
-            try {
-                if (icon) icon.classList.add('fa-spin');
-                if (text) text.textContent = 'Cargando...';
-                if (statusText) statusText.textContent = 'Sincronizando...';
-
-                // Fetch live CSV using anti-cache query
-                const response = await fetch(`${GOOGLE_SHEETS_CSV_URL}&t=${Date.now()}`);
-                if (!response.ok) throw new Error('No se pudo conectar a Google Sheets');
-
-                const csvText = await response.text();
-
-                // Parse CSV using PapaParse
-                Papa.parse(csvText, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: function(results) {
-                        if (results.data && results.data.length > 0) {
-                            const newLog = [];
-                            const extractedGoals = {};
-
-                            results.data.forEach(row => {
-                                // Clean up header keys regardless of casing/spacing
-                                const cleanRow = {};
-                                Object.keys(row).forEach(k => {
-                                    const keyNorm = k.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-                                    cleanRow[keyNorm] = row[k];
-                                });
-
-                                const fecha = cleanRow['fecha'] || cleanRow['date'] || '';
-                                const rutina = cleanRow['rutina'] || cleanRow['routine'] || 'Push';
-                                const grupo = cleanRow['grupo'] || cleanRow['grupomuscular'] || 'General';
-                                const ejercicio = cleanRow['ejercicio'] || cleanRow['exercise'] || '';
-
-                                if (fecha && ejercicio) {
-                                    const logEntry = {
-                                        fecha: fecha.trim(),
-                                        rutina: rutina.trim(),
-                                        grupo: grupo.trim(),
-                                        ejercicio: ejercicio.trim(),
-                                        s1peso: Number(cleanRow['s1peso'] || cleanRow['serie1peso'] || cleanRow['s1weight'] || 0),
-                                        s1reps: Number(cleanRow['s1reps'] || cleanRow['serie1reps'] || 0),
-                                        s2peso: Number(cleanRow['s2peso'] || cleanRow['serie2peso'] || cleanRow['s2weight'] || 0),
-                                        s2reps: Number(cleanRow['s2reps'] || cleanRow['serie2reps'] || 0),
-                                        s3peso: Number(cleanRow['s3peso'] || cleanRow['serie3peso'] || cleanRow['s3weight'] || 0),
-                                        s3reps: Number(cleanRow['s3reps'] || cleanRow['serie3reps'] || 0)
-                                    };
-                                    newLog.push(logEntry);
-
-                                    // Extract goal if present in CSV
-                                    const metaVal = cleanRow['meta'] || cleanRow['goal'] || cleanRow['objetivo'];
-                                    if (metaVal && !isNaN(Number(metaVal)) && Number(metaVal) > 0) {
-                                        extractedGoals[ejercicio.trim()] = {
-                                            grupo: grupo.trim(),
-                                            ejercicio: ejercicio.trim(),
-                                            meta: Number(metaVal)
-                                        };
-                                    }
-                                }
-                            });
-
-                            if (newLog.length > 0) {
-                                workoutLog = newLog;
-
-                                // Update goals if parsed from CSV
-                                const goalsKeys = Object.keys(extractedGoals);
-                                if (goalsKeys.length > 0) {
-                                    goalsData = Object.values(extractedGoals);
-                                }
-
-                                refreshAllDashboardViews();
-
-                                if (statusText) statusText.textContent = `Actualizado: ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
-                                if (badge) badge.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 font-medium";
-                                if (dot) dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
-                            }
-                        }
-                    }
-                });
-
-            } catch (err) {
-                console.warn('Google Sheets Fetch Error, fallback to current data:', err);
-                if (statusText) statusText.textContent = 'Modo Local / Offline';
-                if (badge) badge.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400 font-medium";
-                if (dot) dot.className = "w-2 h-2 rounded-full bg-amber-400";
-            } finally {
-                if (icon) icon.classList.remove('fa-spin');
-                if (text) text.textContent = 'Sincronizar Sheets';
-            }
-        }
-
-        function refreshAllDashboardViews() {
-            recalculateMetrics();
-            initOverviewTable();
-            
-            // Re-render charts
-            if (chartVolTrendInstance) chartVolTrendInstance.destroy();
-            if (chartMuscleDistInstance) chartMuscleDistInstance.destroy();
-            initOverviewCharts();
-
-            renderGoalsGrid();
-            renderCalendar();
-            initExerciseDetailDropdown();
-            renderOverloadSuggestions();
-
-            // Keep selected date active
-            const activeDate = document.getElementById('selected-date-badge')?.textContent?.split(' ')[0] || '2026-07-25';
-            selectCalendarDay(activeDate);
-        }
-
-        // Current Calendar State
-        let currentYear = 2026;
-        let currentMonth = 6; // 0-indexed (6 = July)
-
-        // Global Chart Instances
-        let chartVolTrendInstance = null;
-        let chartMuscleDistInstance = null;
-        let chartGoalsBarInstance = null;
-        let chartExProgressionInstance = null;
+        lucide.createIcons();
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active', 'bg-indigo-600', 'text-white', 'shadow-md', 'shadow-indigo-600/20');
-                btn.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-slate-800/60');
-            });
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
 
-            document.getElementById(`content-${tabId}`).classList.remove('hidden');
-            const activeBtn = document.getElementById(`tab-${tabId}`);
-            activeBtn.classList.add('active', 'bg-indigo-600', 'text-white', 'shadow-md', 'shadow-indigo-600/20');
-            activeBtn.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-slate-800/60');
+            document.getElementById(tabId).classList.remove('hidden');
+            document.getElementById('btn-' + tabId).classList.add('active');
 
-            // Render charts on demand to prevent width glitches
-            if (tabId === 'goals' && chartGoalsBarInstance) {
-                chartGoalsBarInstance.resize();
-            } else if (tabId === 'exercise') {
-                updateExerciseDetailView();
-            }
+            if (tabId === 'tab-metas') renderMetasView();
         }
 
-        function initOverviewTable() {
-            const tbody = document.getElementById('overview-sessions-table-body');
-            tbody.innerHTML = '';
+        async function fetchCSVData() {
+            const refreshIcon = document.getElementById('refresh-icon');
+            if (refreshIcon) refreshIcon.classList.add('animate-spin');
 
-            const dates = Object.keys(sessionsByDate).sort();
-            dates.forEach(fecha => {
-                const session = sessionsByDate[fecha];
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-800/50 transition-colors cursor-pointer group";
-                
-                let badgeColor = "bg-blue-500/20 text-blue-400 border-blue-500/30";
-                if (session.rutina === 'Pull') badgeColor = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-                if (session.rutina === 'Legs') badgeColor = "bg-purple-500/20 text-purple-400 border-purple-500/30";
+            try {
+                const response = await fetch(CSV_URL + '&t=' + new Date().getTime());
+                const csvText = await response.text();
 
-                const exNames = session.ejercicios.map(e => e.ejercicio).join(', ');
-
-                tr.innerHTML = `
-                    <td class="p-3 font-semibold text-white">${session.fecha}</td>
-                    <td class="p-3">
-                        <span class="px-2.5 py-1 rounded-full text-xs font-bold border ${badgeColor}">
-                            ${session.rutina}
-                        </span>
-                    </td>
-                    <td class="p-3 text-slate-300 truncate max-w-xs text-xs">${exNames}</td>
-                    <td class="p-3 text-right font-bold text-indigo-300">${session.totalVolumen.toLocaleString()} kg</td>
-                    <td class="p-3 text-center">
-                        <button onclick="goToCalendarDate('${session.fecha}')" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 text-xs border border-indigo-500/30 transition-all">
-                            Ver <i class="fa-solid fa-arrow-right ml-1"></i>
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function initOverviewCharts() {
-            // Chart 1: Volume Trend
-            const ctxTrend = document.getElementById('chart-volume-trend').getContext('2d');
-            const dates = Object.keys(sessionsByDate).sort();
-            const volumes = dates.map(d => sessionsByDate[d].totalVolumen);
-            const routines = dates.map(d => sessionsByDate[d].rutina);
-
-            const backgroundColors = routines.map(r => {
-                if (r === 'Push') return '#3b82f6';
-                if (r === 'Pull') return '#10b981';
-                return '#8b5cf6';
-            });
-
-            chartVolTrendInstance = new Chart(ctxTrend, {
-                type: 'bar',
-                data: {
-                    labels: dates.map(d => d.replace('2026-', '')),
-                    datasets: [{
-                        label: 'Volumen Total (kg)',
-                        data: volumes,
-                        backgroundColor: backgroundColors,
-                        borderRadius: 8,
-                        borderSkipped: false
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => `Volumen: ${ctx.raw.toLocaleString()} kg (${routines[ctx.dataIndex]})`
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            grid: { color: 'rgba(255,255,255,0.05)' },
-                            ticks: { color: '#94a3b8' }
-                        },
-                        y: {
-                            grid: { color: 'rgba(255,255,255,0.05)' },
-                            ticks: { color: '#94a3b8' }
-                        }
+                Papa.parse(csvText, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        rawData = cleanParsedData(results.data);
+                        initDashboard();
+                        document.getElementById('sync-status').className = "inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
                     }
-                }
-            });
+                });
+            } catch (error) {
+                console.error("Error fetching CSV:", error);
+                document.getElementById('sync-status').className = "inline-block w-2 h-2 rounded-full bg-rose-500";
+            } font-bold {
+                if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+            }
+        }
 
-            // Chart 2: Muscle Distribution
-            const ctxDist = document.getElementById('chart-muscle-dist').getContext('2d');
-            const muscleVol = {};
-            workoutLog.forEach(row => {
-                muscleVol[row.grupo] = (muscleVol[row.grupo] || 0) + row.totalVol;
-            });
-
-            chartMuscleDistInstance = new Chart(ctxDist, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(muscleVol),
-                    datasets: [{
-                        data: Object.values(muscleVol),
-                        backgroundColor: ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899', '#06b6d4'],
-                        borderWidth: 2,
-                        borderColor: '#0f172a'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { color: '#cbd5e1', font: { size: 11 }, padding: 12 }
-                        }
-                    }
+        function cleanParsedData(data) {
+            return data.filter(row => row.Fecha && row.Ejercicio).map(row => {
+                let dateStr = row.Fecha.toString().trim();
+                let dateParts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
+                let year, month, day;
+                if (dateParts[0].length === 4) {
+                    year = parseInt(dateParts[0]); month = parseInt(dateParts[1]) - 1; day = parseInt(dateParts[2]);
+                } else {
+                    day = parseInt(dateParts[0]); month = parseInt(dateParts[1]) - 1; year = parseInt(dateParts[2]);
                 }
+                let dateObj = new Date(year, month, day);
+
+                let s1Val = (parseFloat(row.S1PESO) || 0) * (parseFloat(row.S1Reps) || 0);
+                let s2Val = (parseFloat(row.S2PESO) || 0) * (parseFloat(row.S2Reps) || 0);
+                let s3Val = (parseFloat(row.S3PESO) || 0) * (parseFloat(row.S3Reps) || 0);
+                let totalVol = s1Val + s2Val + s3Val;
+
+                let maxPeso = Math.max(
+                    parseFloat(row.S1PESO) || 0,
+                    parseFloat(row.S2PESO) || 0,
+                    parseFloat(row.S3PESO) || 0
+                );
+
+                return {
+                    ...row,
+                    DateObj: dateObj,
+                    DateFormatted: `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+                    VolumenTotal: totalVol,
+                    MaxPeso: maxPeso
+                };
             });
         }
 
-        function renderGoalsGrid() {
-            const filterGroup = document.getElementById('filter-muscle-group').value;
-            const container = document.getElementById('goals-cards-container');
-            container.innerHTML = '';
+        function initDashboard() {
+            renderKPIs();
+            renderVolumeChart();
+            renderMuscleChart();
+            renderCalendar();
+            populateExerciseSelect();
+            renderExerciseChart();
+            renderOverloadRecommendations();
+        }
 
-            let filteredGoals = goalsData;
-            if (filterGroup !== 'ALL') {
-                filteredGoals = goalsData.filter(g => g.grupo === filterGroup);
-            }
+        function renderKPIs() {
+            const uniqueDates = [...new Set(rawData.map(r => r.DateFormatted))];
+            const totalVol = rawData.reduce((acc, r) => acc + r.VolumenTotal, 0);
+            const avgVol = uniqueDates.length ? Math.round(totalVol / uniqueDates.length) : 0;
+            const uniqueExercises = [...new Set(rawData.map(r => r.Ejercicio))];
 
-            // Update or create Bar Chart for goals
-            const labels = filteredGoals.map(g => g.ejercicio);
-            const pcts = filteredGoals.map(g => {
-                const max = maxPrByExercise[g.ejercicio] || 0;
-                return Math.round((max / g.meta) * 100);
+            document.getElementById('kpi-sessions').innerText = uniqueDates.length;
+            document.getElementById('kpi-volume').innerText = totalVol.toLocaleString('es-ES') + ' kg';
+            document.getElementById('kpi-avg').innerText = avgVol.toLocaleString('es-ES') + ' kg';
+            document.getElementById('kpi-exercises').innerText = uniqueExercises.length;
+        }
+
+        function renderVolumeChart() {
+            const sessions = {};
+            rawData.forEach(r => {
+                if (!sessions[r.DateFormatted]) {
+                    sessions[r.DateFormatted] = { date: r.DateFormatted, routine: r.Rutina, volume: 0 };
+                }
+                sessions[r.DateFormatted].volume += r.VolumenTotal;
             });
-            const barColors = pcts.map(p => p >= 100 ? '#10b981' : p >= 80 ? '#f59e0b' : '#ef4444');
 
-            if (chartGoalsBarInstance) {
-                chartGoalsBarInstance.destroy();
-            }
+            const sortedDates = Object.keys(sessions).sort();
+            const labels = sortedDates;
+            const dataValues = sortedDates.map(d => sessions[d].volume);
+            const backgroundColors = sortedDates.map(d => {
+                const rut = (sessions[d].routine || '').toLowerCase();
+                if (rut.includes('push')) return '#3b82f6';
+                if (rut.includes('pull')) return '#a855f7';
+                return '#10b981';
+            });
 
-            const ctxGoals = document.getElementById('chart-goals-bar').getContext('2d');
-            chartGoalsBarInstance = new Chart(ctxGoals, {
+            const ctx = document.getElementById('volumeChart').getContext('2d');
+            if (volumeChartInstance) volumeChartInstance.destroy();
+
+            volumeChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: '% de Cumplimiento de Meta',
-                        data: pcts,
-                        backgroundColor: barColors,
+                        label: 'Volumen (kg)',
+                        data: dataValues,
+                        backgroundColor: backgroundColors,
                         borderRadius: 6
                     }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        function renderMuscleChart() {
+            const muscleCounts = {};
+            rawData.forEach(r => {
+                let g = r.Grupo || 'Otro';
+                muscleCounts[g] = (muscleCounts[g] || 0) + 1;
+            });
+
+            const ctx = document.getElementById('muscleChart').getContext('2d');
+            if (muscleChartInstance) muscleChartInstance.destroy();
+
+            muscleChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(muscleCounts),
+                    datasets: [{
+                        data: Object.values(muscleCounts),
+                        backgroundColor: ['#3b82f6', '#ec4899', '#a855f7', '#10b981', '#f59e0b', '#06b6d4'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } } },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        function changeMonth(delta) {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+
+            const year = currentCalendarDate.getFullYear();
+            const month = currentCalendarDate.getMonth();
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            document.getElementById('calendar-month-year').innerText = `${monthNames[month]} ${year}`;
+
+            const firstDay = new Date(year, month, 1);
+            let startingDay = firstDay.getDay() - 1;
+            if (startingDay === -1) startingDay = 6;
+
+            const lastDate = new Date(year, month + 1, 0).getDate();
+
+            const workoutMap = {};
+            rawData.forEach(r => {
+                if (!workoutMap[r.DateFormatted]) workoutMap[r.DateFormatted] = [];
+                workoutMap[r.DateFormatted].push(r);
+            });
+
+            for (let i = 0; i < startingDay; i++) {
+                const blank = document.createElement('div');
+                blank.className = 'calendar-day p-2 rounded-xl bg-slate-900/20 opacity-20';
+                grid.appendChild(blank);
+            }
+
+            for (let day = 1; day <= lastDate; day++) {
+                const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const hasWorkout = workoutMap[dayStr];
+
+                const dayCell = document.createElement('div');
+                let bgClass = "bg-slate-900/40 border border-slate-800 text-slate-500";
+
+                if (hasWorkout) {
+                    const routine = hasWorkout[0].Rutina.toLowerCase();
+                    if (routine.includes('push')) bgClass = "bg-blue-600/20 border border-blue-500/40 text-blue-300 font-bold cursor-pointer hover:bg-blue-600/40 shadow-lg shadow-blue-500/10";
+                    else if (routine.includes('pull')) bgClass = "bg-purple-600/20 border border-purple-500/40 text-purple-300 font-bold cursor-pointer hover:bg-purple-600/40 shadow-lg shadow-purple-500/10";
+                    else bgClass = "bg-emerald-600/20 border border-emerald-500/40 text-emerald-300 font-bold cursor-pointer hover:bg-emerald-600/40 shadow-lg shadow-emerald-500/10";
+                }
+
+                dayCell.className = `calendar-day p-2 rounded-xl flex flex-col justify-between ${bgClass}`;
+                dayCell.innerHTML = `
+                    <span class="text-xs">${day}</span>
+                    ${hasWorkout ? `<span class="text-[10px] uppercase font-black tracking-tight truncate">${hasWorkout[0].Rutina}</span>` : ''}
+                `;
+
+                if (hasWorkout) {
+                    dayCell.onclick = () => inspectSession(dayStr, hasWorkout);
+                }
+
+                grid.appendChild(dayCell);
+            }
+        }
+
+        function inspectSession(dateStr, sessionRows) {
+            document.getElementById('selected-date-badge').innerText = dateStr;
+            const container = document.getElementById('inspector-content');
+            container.innerHTML = '';
+
+            let totalSessionVol = 0;
+
+            sessionRows.forEach(r => {
+                totalSessionVol += r.VolumenTotal;
+                const card = document.createElement('div');
+                card.className = "p-3 bg-slate-900/90 rounded-xl border border-slate-800 text-xs space-y-2";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-slate-100">${r.Ejercicio}</span>
+                        <span class="px-2 py-0.5 bg-slate-800 text-slate-400 rounded-md text-[10px]">${r.Grupo}</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1 text-center text-slate-400 pt-1.5 border-t border-slate-800">
+                        <div>S1: <b class="text-slate-200">${r.S1PESO || 0}kg</b> x ${r.S1Reps || 0}</div>
+                        <div>S2: <b class="text-slate-200">${r.S2PESO || 0}kg</b> x ${r.S2Reps || 0}</div>
+                        <div>S3: <b class="text-slate-200">${r.S3PESO || 0}kg</b> x ${r.S3Reps || 0}</div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            document.getElementById('inspector-summary').classList.remove('hidden');
+            document.getElementById('session-total-vol').innerText = totalSessionVol.toLocaleString('es-ES') + ' kg';
+        }
+
+        function renderMetasView() {
+            const filterGroup = document.getElementById('filterGroupMeta').value;
+
+            const exPRs = {};
+            rawData.forEach(r => {
+                if (!exPRs[r.Ejercicio] || r.MaxPeso > exPRs[r.Ejercicio].pr) {
+                    exPRs[r.Ejercicio] = {
+                        ejercicio: r.Ejercicio,
+                        grupo: r.Grupo,
+                        pr: r.MaxPeso,
+                        meta: METAS_MAP[r.Ejercicio] || r.MaxPeso
+                    };
+                }
+            });
+
+            let list = Object.values(exPRs);
+            if (filterGroup !== 'ALL') {
+                list = list.filter(item => item.grupo === filterGroup);
+            }
+
+            const labels = list.map(i => i.ejercicio);
+            const prValues = list.map(i => i.pr);
+            const metaValues = list.map(i => i.meta);
+
+            const ctx = document.getElementById('metasChart').getContext('2d');
+            if (metasChartInstance) metasChartInstance.destroy();
+
+            metasChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Récord Personal (PR)', data: prValues, backgroundColor: '#a855f7', borderRadius: 4 },
+                        { label: 'Meta Objetivo', data: metaValues, backgroundColor: '#334155', borderRadius: 4 }
+                    ]
                 },
                 options: {
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => `${ctx.raw}% de la meta alcanzada`
-                            }
-                        }
-                    },
+                    plugins: { legend: { labels: { color: '#94a3b8' } } },
                     scales: {
-                        x: {
-                            grid: { color: 'rgba(255,255,255,0.05)' },
-                            ticks: { color: '#94a3b8' },
-                            max: Math.max(...pcts, 120)
-                        },
-                        y: {
-                            grid: { display: false },
-                            ticks: { color: '#cbd5e1', font: { size: 11 } }
-                        }
+                        x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { display: false }, ticks: { color: '#94a3b8' } }
                     }
                 }
             });
 
-            // Populate Cards
-            filteredGoals.forEach(g => {
-                const maxPR = maxPrByExercise[g.ejercicio] || 0;
-                const pct = Math.round((maxPR / g.meta) * 100);
-                
-                let badgeClass = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-                let statusText = "Meta Superada 🎉";
-                if (pct < 100) {
-                    badgeClass = pct >= 80 ? "bg-amber-500/20 text-amber-400 border-amber-500/30" : "bg-red-500/20 text-red-400 border-red-500/30";
-                    statusText = `Faltan ${g.meta - maxPR} kg`;
-                }
-
+            const container = document.getElementById('metas-cards-container');
+            container.innerHTML = '';
+            list.forEach(item => {
+                const pct = Math.round((item.pr / item.meta) * 100);
+                const isDone = pct >= 100;
                 const card = document.createElement('div');
-                card.className = "glass-card rounded-2xl p-4 space-y-3 relative overflow-hidden";
+                card.className = "p-3 bg-slate-900/80 rounded-xl border border-slate-800 text-xs space-y-1.5";
                 card.innerHTML = `
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">${g.grupo}</span>
-                            <h4 class="font-bold text-white text-base leading-tight">${g.ejercicio}</h4>
-                        </div>
-                        <span class="px-2 py-0.5 rounded-full text-[11px] font-bold border ${badgeClass}">
-                            ${pct}%
-                        </span>
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-slate-200">${item.ejercicio}</span>
+                        <span class="font-black ${isDone ? 'text-emerald-400' : 'text-amber-400'}">${pct}%</span>
                     </div>
-
-                    <div class="flex items-baseline justify-between pt-1">
-                        <div>
-                            <span class="text-2xl font-extrabold text-white">${maxPR} <span class="text-xs text-slate-400">kg (PR)</span></span>
-                        </div>
-                        <div class="text-right">
-                            <span class="text-xs text-slate-400">Meta: <strong class="text-slate-200">${g.meta} kg</strong></span>
-                        </div>
-                    </div>
-
-                    <!-- Progress Bar -->
                     <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
-                        <div class="h-full rounded-full transition-all duration-500 ${pct >= 100 ? 'bg-emerald-400' : pct >= 80 ? 'bg-amber-400' : 'bg-red-400'}" style="width: ${Math.min(pct, 100)}%"></div>
+                        <div class="h-2 rounded-full ${isDone ? 'bg-emerald-500' : 'bg-amber-500'}" style="width: ${Math.min(pct, 100)}%"></div>
                     </div>
-
-                    <div class="flex items-center justify-between text-xs text-slate-400 pt-1 border-t border-slate-800">
-                        <span>Estado: <strong class="text-slate-300">${statusText}</strong></span>
-                        <button onclick="selectAndGoToExercise('${g.ejercicio}')" class="text-indigo-400 hover:text-indigo-300 font-medium">Ver Historial <i class="fa-solid fa-chevron-right text-[10px]"></i></button>
+                    <div class="flex justify-between text-[11px] text-slate-500">
+                        <span>PR: <b>${item.pr} kg</b></span>
+                        <span>Meta: <b>${item.meta} kg</b></span>
                     </div>
                 `;
                 container.appendChild(card);
             });
         }
 
-        function renderCalendar() {
-            const monthYearLabel = document.getElementById('calendar-month-year');
-            const grid = document.getElementById('calendar-days-grid');
-            grid.innerHTML = '';
-
-            const dateObj = new Date(currentYear, currentMonth, 1);
-            const monthName = dateObj.toLocaleString('es-ES', { month: 'long' });
-            monthYearLabel.textContent = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} ${currentYear}`;
-
-            const firstDayIndex = dateObj.getDay(); // 0 = Sun
-            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-
-            // Blank cells before month starts
-            for (let i = 0; i < firstDayIndex; i++) {
-                const blank = document.createElement('div');
-                blank.className = "h-20 rounded-xl bg-slate-900/40 border border-slate-800/40 opacity-30";
-                grid.appendChild(blank);
-            }
-
-            // Day cells
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dayString = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const session = sessionsByDate[dayString];
-
-                const cell = document.createElement('div');
-                cell.className = `h-20 rounded-xl border p-2 flex flex-col justify-between transition-all cursor-pointer relative group ${
-                    session ? 'bg-slate-800/90 border-slate-700 hover:border-indigo-500' : 'bg-slate-900/60 border-slate-800/60 hover:bg-slate-800/40'
-                }`;
-
-                cell.onclick = () => selectCalendarDay(dayString);
-
-                let badgeHtml = '';
-                if (session) {
-                    let colorBg = 'bg-blue-500 text-white';
-                    if (session.rutina === 'Pull') colorBg = 'bg-emerald-500 text-white';
-                    if (session.rutina === 'Legs') colorBg = 'bg-purple-500 text-white';
-
-                    badgeHtml = `
-                        <div class="mt-1">
-                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${colorBg} block text-center truncate">
-                                ${session.rutina}
-                            </span>
-                            <span class="text-[10px] text-slate-400 block text-center mt-1 font-semibold">
-                                ${(session.totalVolumen / 1000).toFixed(1)}k kg
-                            </span>
-                        </div>
-                    `;
-                }
-
-                cell.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold ${session ? 'text-white' : 'text-slate-500'}">${day}</span>
-                        ${session ? '<span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>' : ''}
-                    </div>
-                    ${badgeHtml}
-                `;
-
-                grid.appendChild(cell);
-            }
-        }
-
-        function changeMonth(delta) {
-            currentMonth += delta;
-            if (currentMonth > 11) {
-                currentMonth = 0;
-                currentYear++;
-            } else if (currentMonth < 0) {
-                currentMonth = 11;
-                currentYear--;
-            }
-            renderCalendar();
-        }
-
-        function selectCalendarDay(dateStr) {
-            const badge = document.getElementById('selected-date-badge');
-            const content = document.getElementById('session-detail-content');
-            const footer = document.getElementById('session-detail-footer');
-
-            badge.textContent = dateStr;
-
-            const session = sessionsByDate[dateStr];
-            if (!session) {
-                badge.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700";
-                content.innerHTML = `
-                    <div class="text-center py-10 text-slate-500 space-y-2">
-                        <i class="fa-solid fa-bed text-3xl opacity-40"></i>
-                        <p class="text-xs font-medium">Día de Descanso / Sin Registro</p>
-                        <p class="text-[11px] text-slate-600">No hay ejercicios anotados para esta fecha.</p>
-                    </div>
-                `;
-                footer.classList.add('hidden');
-                return;
-            }
-
-            let badgeColor = "bg-blue-500/20 text-blue-400 border-blue-500/30";
-            if (session.rutina === 'Pull') badgeColor = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
-            if (session.rutina === 'Legs') badgeColor = "bg-purple-500/20 text-purple-400 border-purple-500/30";
-
-            badge.className = `px-2.5 py-1 rounded-full text-xs font-bold border ${badgeColor}`;
-            badge.textContent = `${dateStr} • ${session.rutina}`;
-
-            let html = `<div class="space-y-3">`;
-
-            session.ejercicios.forEach(ex => {
-                html += `
-                    <div class="p-3 rounded-xl bg-slate-800/80 border border-slate-700/60 space-y-2">
-                        <div class="flex items-center justify-between">
-                            <span class="font-bold text-sm text-white">${ex.ejercicio}</span>
-                            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-semibold">${ex.grupo}</span>
-                        </div>
-                        <div class="grid grid-cols-3 gap-2 text-center text-xs">
-                            <div class="p-1.5 rounded bg-slate-900/60 border border-slate-800">
-                                <span class="text-[10px] text-slate-400 block">Serie 1</span>
-                                <span class="font-semibold text-slate-200">${ex.s1peso}kg × ${ex.s1reps}</span>
-                            </div>
-                            <div class="p-1.5 rounded bg-slate-900/60 border border-slate-800">
-                                <span class="text-[10px] text-slate-400 block">Serie 2</span>
-                                <span class="font-semibold text-slate-200">${ex.s2peso}kg × ${ex.s2reps}</span>
-                            </div>
-                            <div class="p-1.5 rounded bg-slate-900/60 border border-slate-800">
-                                <span class="text-[10px] text-slate-400 block">Serie 3</span>
-                                <span class="font-semibold text-slate-200">${ex.s3peso}kg × ${ex.s3reps}</span>
-                            </div>
-                        </div>
-                        <div class="flex justify-between items-center text-[11px] text-slate-400 pt-1">
-                            <span>Volumen: <strong class="text-indigo-300">${ex.totalVol} kg</strong></span>
-                            <span>Máx Peso: <strong class="text-emerald-400">${ex.maxWeight} kg</strong></span>
-                        </div>
-                    </div>
-                `;
-            });
-
-            html += `</div>`;
-            content.innerHTML = html;
-
-            document.getElementById('footer-ex-count').textContent = session.ejercicios.length;
-            document.getElementById('footer-vol-sum').textContent = `${session.totalVolumen.toLocaleString()} kg`;
-            footer.classList.remove('hidden');
-        }
-
-        function goToCalendarDate(dateStr) {
-            switchTab('calendar');
-            const [y, m, d] = dateStr.split('-').map(Number);
-            currentYear = y;
-            currentMonth = m - 1;
-            renderCalendar();
-            selectCalendarDay(dateStr);
-        }
-
-        function initExerciseDetailDropdown() {
-            const select = document.getElementById('select-exercise-detail');
+        function populateExerciseSelect() {
+            const select = document.getElementById('exerciseSelect');
             select.innerHTML = '';
+            const exercises = [...new Set(rawData.map(r => r.Ejercicio))].sort();
 
-            goalsData.forEach(g => {
+            exercises.forEach(ex => {
                 const opt = document.createElement('option');
-                opt.value = g.ejercicio;
-                opt.textContent = `${g.ejercicio} (${g.grupo})`;
+                opt.value = ex;
+                opt.innerText = ex;
                 select.appendChild(opt);
             });
         }
 
-        function updateExerciseDetailView() {
-            const exName = document.getElementById('select-exercise-detail').value;
-            if (!exName) return;
+        function renderExerciseChart() {
+            const select = document.getElementById('exerciseSelect');
+            const selectedEx = select.value || rawData[0]?.Ejercicio;
+            if (!selectedEx) return;
 
-            const goalObj = goalsData.find(g => g.ejercicio === exName) || { meta: 0, grupo: 'Desconocido' };
-            const history = workoutLog.filter(row => row.ejercicio === exName).sort((a,b) => a.fecha.localeCompare(b.fecha));
+            const filtered = rawData.filter(r => r.Ejercicio === selectedEx).sort((a,b) => a.DateObj - b.DateObj);
+            const labels = filtered.map(r => r.DateFormatted);
+            const weights = filtered.map(r => r.MaxPeso);
 
-            const maxPR = maxPrByExercise[exName] || 0;
-            const pct = Math.round((maxPR / goalObj.meta) * 100);
+            const pr = Math.max(...weights, 0);
+            const lastWeight = weights[weights.length - 1] || 0;
+            const group = filtered[0]?.Grupo || '-';
 
-            document.getElementById('ex-detail-group').textContent = goalObj.grupo;
-            document.getElementById('ex-detail-pr').textContent = `${maxPR} kg`;
-            document.getElementById('ex-detail-meta').textContent = `${goalObj.meta} kg`;
-            document.getElementById('ex-detail-pct').textContent = `${pct}%`;
+            document.getElementById('ex-stat-pr').innerText = pr + ' kg';
+            document.getElementById('ex-stat-last').innerText = lastWeight + ' kg';
+            document.getElementById('ex-stat-group').innerText = group;
 
-            // Render Chart
-            const dates = history.map(h => h.fecha.replace('2026-', ''));
-            const weights = history.map(h => h.maxWeight);
-            const metaLine = history.map(() => goalObj.meta);
+            const ctx = document.getElementById('exerciseChart').getContext('2d');
+            if (exerciseChartInstance) exerciseChartInstance.destroy();
 
-            if (chartExProgressionInstance) {
-                chartExProgressionInstance.destroy();
-            }
-
-            const ctx = document.getElementById('chart-exercise-progression').getContext('2d');
-            chartExProgressionInstance = new Chart(ctx, {
+            exerciseChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: dates,
-                    datasets: [
-                        {
-                            label: 'Máximo Peso (kg)',
-                            data: weights,
-                            borderColor: '#10b981',
-                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                            borderWidth: 3,
-                            fill: true,
-                            tension: 0.2,
-                            pointRadius: 6,
-                            pointBackgroundColor: '#10b981'
-                        },
-                        {
-                            label: 'Meta (kg)',
-                            data: metaLine,
-                            borderColor: '#f59e0b',
-                            borderWidth: 2,
-                            borderDash: [5, 5],
-                            pointRadius: 0,
-                            fill: false
-                        }
-                    ]
+                    labels: labels,
+                    datasets: [{
+                        label: 'Peso Máximo Movido (kg)',
+                        data: weights,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: '#f59e0b',
+                        pointRadius: 5
+                    }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { labels: { color: '#cbd5e1' } }
-                    },
+                    plugins: { legend: { display: false } },
                     scales: {
-                        x: {
-                            grid: { color: 'rgba(255,255,255,0.05)' },
-                            ticks: { color: '#94a3b8' }
-                        },
-                        y: {
-                            grid: { color: 'rgba(255,255,255,0.05)' },
-                            ticks: { color: '#94a3b8' }
-                        }
+                        x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
                     }
                 }
             });
-
-            // Table
-            const tbody = document.getElementById('ex-detail-table-body');
-            tbody.innerHTML = '';
-
-            history.forEach(row => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-800/40 transition-colors";
-                tr.innerHTML = `
-                    <td class="p-3 font-semibold text-white">${row.fecha}</td>
-                    <td class="p-3 text-slate-300">${row.s1peso} kg × ${row.s1reps}</td>
-                    <td class="p-3 text-slate-300">${row.s2peso} kg × ${row.s2reps}</td>
-                    <td class="p-3 text-slate-300">${row.s3peso} kg × ${row.s3reps}</td>
-                    <td class="p-3 text-right font-bold text-emerald-400">${row.maxWeight} kg</td>
-                    <td class="p-3 text-right font-bold text-indigo-300">${row.totalVol} kg</td>
-                `;
-                tbody.appendChild(tr);
-            });
         }
 
-        function selectAndGoToExercise(exName) {
-            switchTab('exercise');
-            document.getElementById('select-exercise-detail').value = exName;
-            updateExerciseDetailView();
-        }
-
-        function renderOverloadSuggestions() {
-            const container = document.getElementById('overload-cards-container');
+        function renderOverloadRecommendations() {
+            const container = document.getElementById('overload-cards-grid');
             container.innerHTML = '';
 
-            // Get last session row for each exercise
-            const lastSessionPerEx = {};
-            workoutLog.forEach(row => {
-                if (!lastSessionPerEx[row.ejercicio] || row.fecha > lastSessionPerEx[row.ejercicio].fecha) {
-                    lastSessionPerEx[row.ejercicio] = row;
+            const exerciseLastMap = {};
+            rawData.forEach(r => {
+                if (!exerciseLastMap[r.Ejercicio] || r.DateObj > exerciseLastMap[r.Ejercicio].DateObj) {
+                    exerciseLastMap[r.Ejercicio] = r;
                 }
             });
 
-            goalsData.forEach(g => {
-                const last = lastSessionPerEx[g.ejercicio];
-                if (!last) return;
+            Object.values(exerciseLastMap).forEach(item => {
+                const maxRepsS3 = item.S3Reps || 0;
+                let recText = "";
+                let recBadge = "";
 
-                const minReps = Math.min(last.s1reps || 8, last.s2reps || 8, last.s3reps || 8);
-                const maxWeight = last.maxWeight;
-
-                let recommendation = "";
-                let badge = "";
-                let borderClass = "";
-
-                if (minReps >= 8) {
-                    const newWeight = maxWeight + (maxWeight >= 80 ? 5 : 2.5);
-                    recommendation = `¡Completaste 8 reps en todas las series! Se recomienda **subir a ${newWeight} kg** en la siguiente sesión (+${newWeight - maxWeight} kg).`;
-                    badge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Subir Carga +</span>`;
-                    borderClass = "border-emerald-500/30";
-                } else if (minReps >= 6) {
-                    recommendation = `Mantener **${maxWeight} kg**. Busca llegar a 8 repeticiones sólidas en la Serie 3 antes de incrementar peso.`;
-                    badge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">Mantener Carga =</span>`;
-                    borderClass = "border-amber-500/30";
+                if (maxRepsS3 >= 8) {
+                    recText = `Completaste ${maxRepsS3} reps en la última serie. Recomendación: subir +2.5 kg en la próxima sesión.`;
+                    recBadge = `<span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded text-[10px] font-bold">Subir Carga</span>`;
                 } else {
-                    recommendation = `Reps bajas (${minReps} reps en última serie). Mantén el peso o realiza un ligero deload técnico a **${Math.round(maxWeight * 0.9)} kg**.`;
-                    badge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">Ajuste Técnico ⚡</span>`;
-                    borderClass = "border-purple-500/30";
+                    recText = `Lograste ${maxRepsS3} reps. Consolidar ${item.MaxPeso} kg hasta lograr 8 reps limpias.`;
+                    recBadge = `<span class="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[10px] font-bold">Consolidar</span>`;
                 }
 
                 const card = document.createElement('div');
-                card.className = `glass-card rounded-2xl p-4 space-y-3 border ${borderClass}`;
+                card.className = "p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2";
                 card.innerHTML = `
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <span class="text-[10px] uppercase font-bold text-slate-400">${last.grupo} • Último registro: ${last.fecha}</span>
-                            <h4 class="font-bold text-white text-base">${last.ejercicio}</h4>
-                        </div>
-                        ${badge}
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-sm text-slate-100">${item.Ejercicio}</span>
+                        ${recBadge}
                     </div>
-
-                    <div class="p-3 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs space-y-1">
-                        <div class="flex justify-between text-slate-300">
-                            <span>Última Sesión:</span>
-                            <strong class="text-white">${last.s1peso}kg×${last.s1reps}, ${last.s2peso}kg×${last.s2reps}, ${last.s3peso}kg×${last.s3reps}</strong>
-                        </div>
-                        <div class="flex justify-between text-slate-300">
-                            <span>Meta Original:</span>
-                            <strong class="text-amber-400">${g.meta} kg</strong>
-                        </div>
-                    </div>
-
-                    <p class="text-xs text-slate-300 leading-relaxed">
-                        <i class="fa-solid fa-lightbulb text-amber-400 mr-1"></i> ${recommendation}
-                    </p>
+                    <p class="text-xs text-slate-400">${recText}</p>
+                    <div class="text-[11px] text-slate-500 pt-2 border-t border-slate-800">Última sesión: ${item.DateFormatted}</div>
                 `;
-
                 container.appendChild(card);
             });
         }
 
-        window.onload = function() {
-            recalculateMetrics();
-            initOverviewTable();
-            initOverviewCharts();
-            renderGoalsGrid();
-            renderCalendar();
-            initExerciseDetailDropdown();
-            renderOverloadSuggestions();
-            
-            // Auto-select initial calendar day
-            selectCalendarDay('2026-07-25');
-
-            // Automatic initial fetch from Google Sheets
-            fetchGoogleSheetsData();
-        };
+        fetchCSVData();
     </script>
 </body>
 </html>
